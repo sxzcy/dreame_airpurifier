@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Dreame Smart Life",
-        "description": "使用你自己的 Dreame Smart Life 账号登录。如果不确定区域，选择自动识别即可。",
+        "title": "Dreame 空气净化器 FP10",
+        "description": "使用你自己的 Dreame Smart Life 账号登录 FP10 空气净化器。如果不确定区域，选择自动识别即可。",
         "data": {
           "username": "账号",
           "password": "密码",
@@ -29,7 +29,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Dreame Smart Life 选项",
+        "title": "Dreame 空气净化器 FP10 选项",
         "description": "监控属性使用逗号分隔，映射字段使用 JSON。",
         "data": {
           "scan_interval": "轮询间隔（秒）",

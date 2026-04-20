@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Dreame Smart Life",
-        "description": "Sign in with your own Dreame Smart Life account. Choose Auto detect if you're unsure about the region.",
+        "title": "Dreame Air Purifier FP10",
+        "description": "Sign in with your own Dreame Smart Life account for the FP10 purifier. Choose Auto detect if you're unsure about the region.",
         "data": {
           "username": "Account",
           "password": "Password",
@@ -29,7 +29,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Dreame Smart Life Options",
+        "title": "Dreame Air Purifier FP10 Options",
         "description": "Use comma-separated keys for watched properties and JSON for mapping fields.",
         "data": {
           "scan_interval": "Scan interval (seconds)",

@@ -14,7 +14,7 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
 ]
 
-DEFAULT_NAME = "Dreame Smart Life"
+DEFAULT_NAME = "Dreame Air Purifier FP10"
 REGION_AUTO = "auto"
 REGION_OPTIONS: dict[str, str] = {
     REGION_AUTO: "Auto detect",

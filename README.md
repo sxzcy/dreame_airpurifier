@@ -1,6 +1,6 @@
-# Dreame Smart Life for Home Assistant
+# Dreame Air Purifier FP10 for Home Assistant
 
-Custom integration for Dreame Smart Life devices in Home Assistant.
+Custom integration for the Dreame Air Purifier FP10 in Home Assistant.
 
 Users log in from the Home Assistant UI with their own Dreame Smart Life account and password. No account details are hardcoded in the integration.
 
@@ -12,7 +12,7 @@ Users log in from the Home Assistant UI with their own Dreame Smart Life account
 - device picker during setup
 - property polling and raw command support
 - configurable fan, sensor, switch, select, and number entities
-- built-in defaults for supported purifier models
+- built-in defaults for the FP10 model (`dreame.airp.u2513`)
 
 ## Installation
 
@@ -20,7 +20,7 @@ Users log in from the Home Assistant UI with their own Dreame Smart Life account
 
 1. Push this repository to GitHub.
 2. In HACS, add it as a custom repository with category `Integration`.
-3. Install `Dreame Smart Life`.
+3. Install `Dreame Air Purifier FP10`.
 4. Restart Home Assistant.
 
 ### Manual
@@ -31,7 +31,7 @@ Users log in from the Home Assistant UI with their own Dreame Smart Life account
 ## Setup
 
 1. Go to `Settings` -> `Devices & Services` -> `Add Integration`.
-2. Search for `Dreame Smart Life`.
+2. Search for `Dreame Air Purifier FP10`.
 3. Enter your Dreame Smart Life account and password.
 4. Leave region on `Auto detect` unless you already know it.
 5. Select the device you want to add.
@@ -39,5 +39,5 @@ Users log in from the Home Assistant UI with their own Dreame Smart Life account
 ## Notes
 
 - The integration stores the selected device and the resolved cloud region in the config entry.
-- If your model is not fully mapped yet, fill the mapping JSON fields in the integration options.
+- This repository is intended for the Dreame Air Purifier FP10 model family, currently mapped as `dreame.airp.u2513`.
 - This repository already includes `hacs.json` and a `.gitignore` suitable for publishing the integration without accidentally committing APK and other local reverse-engineering artifacts.
