@@ -1,0 +1,12 @@
+{
+  "domain": "dreame_smartlife",
+  "name": "Dreame Smart Life",
+  "codeowners": [],
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "loggers": [
+    "custom_components.dreame_smartlife"
+  ],
+  "requirements": [],
+  "version": "0.2.0"
+}

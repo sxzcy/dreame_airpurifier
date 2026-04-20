@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Build artifacts
+*.zip
+
+# Reverse engineering artifacts and local binaries
+*.apk
+*.dex
+*.db
+*.log
+androguard*
+dream.apk
+classes.dex
+fp10_plugin_android_v44/
+fp10_plugin_android_v44.zip
+dreame-vacuum-ref/
+dreamehome-ref/

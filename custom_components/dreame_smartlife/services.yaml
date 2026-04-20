@@ -1,0 +1,25 @@
+probe_properties:
+  name: Probe Properties
+  description: Probe a Dreame Smart Life device for supported property values and store the result on the diagnostics sensor.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        text:
+
+send_raw_command:
+  name: Send Raw Command
+  description: Send a raw cloud command envelope method to the Dreame Smart Life device.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        text:
+    method:
+      required: true
+      selector:
+        text:
+    params:
+      required: true
+      selector:
+        object:

@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dreame Smart Life",
+        "description": "使用你自己的 Dreame Smart Life 账号登录。如果不确定区域，选择自动识别即可。",
+        "data": {
+          "username": "账号",
+          "password": "密码",
+          "region": "区域"
+        }
+      },
+      "select_device": {
+        "title": "选择设备",
+        "data": {
+          "did": "设备"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "这个设备已经配置过了。"
+    },
+    "error": {
+      "cannot_connect": "无法连接",
+      "invalid_auth": "账号或密码错误",
+      "no_devices": "这个账号下没有找到设备"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Dreame Smart Life 选项",
+        "description": "监控属性使用逗号分隔，映射字段使用 JSON。",
+        "data": {
+          "scan_interval": "轮询间隔（秒）",
+          "watched_keys": "监控属性键",
+          "sensor_mappings": "传感器映射 JSON",
+          "switch_mappings": "开关映射 JSON",
+          "select_mappings": "选择器映射 JSON",
+          "number_mappings": "数值映射 JSON",
+          "fan_entity_name": "风扇实体名称",
+          "fan_power_key": "风扇电源键",
+          "fan_power_on_value": "风扇开机值",
+          "fan_power_off_value": "风扇关机值",
+          "fan_status_key": "风扇状态键",
+          "fan_status_on_value": "风扇开启状态值",
+          "fan_status_off_value": "风扇关闭状态值",
+          "fan_speed_key": "风速键",
+          "fan_speed_map": "风速映射 JSON",
+          "fan_power_action_siid": "电源动作 SIID",
+          "fan_power_action_aiid": "电源动作 AIID",
+          "fan_power_action_piid": "电源动作 PIID",
+          "probe_max_siid": "探测最大 SIID",
+          "probe_max_piid": "探测最大 PIID"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dreame Smart Life",
+        "description": "Sign in with your own Dreame Smart Life account. Choose Auto detect if you're unsure about the region.",
+        "data": {
+          "username": "Account",
+          "password": "Password",
+          "region": "Region"
+        }
+      },
+      "select_device": {
+        "title": "Select Device",
+        "data": {
+          "did": "Device"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication",
+      "no_devices": "No devices found for this account"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Dreame Smart Life Options",
+        "description": "Use comma-separated keys for watched properties and JSON for mapping fields.",
+        "data": {
+          "scan_interval": "Scan interval (seconds)",
+          "watched_keys": "Watched keys",
+          "sensor_mappings": "Sensor mappings JSON",
+          "switch_mappings": "Switch mappings JSON",
+          "select_mappings": "Select mappings JSON",
+          "number_mappings": "Number mappings JSON",
+          "fan_entity_name": "Fan entity name",
+          "fan_power_key": "Fan power key",
+          "fan_power_on_value": "Fan power on value",
+          "fan_power_off_value": "Fan power off value",
+          "fan_status_key": "Fan status key",
+          "fan_status_on_value": "Fan status on value",
+          "fan_status_off_value": "Fan status off value",
+          "fan_speed_key": "Fan speed key",
+          "fan_speed_map": "Fan speed map JSON",
+          "fan_power_action_siid": "Power action SIID",
+          "fan_power_action_aiid": "Power action AIID",
+          "fan_power_action_piid": "Power action PIID",
+          "probe_max_siid": "Probe max SIID",
+          "probe_max_piid": "Probe max PIID"
+        }
+      }
+    }
+  }
+}
