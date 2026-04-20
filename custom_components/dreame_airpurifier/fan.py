@@ -4,13 +4,14 @@ from typing import Any
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 
+from .const import DOMAIN
 from .coordinator import DreameSmartlifeCoordinator
 from .entity import DreameSmartlifeEntity
 from .utils import values_equal
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    coordinator: DreameSmartlifeCoordinator = hass.data["dreame_smartlife"][entry.entry_id]
+    coordinator: DreameSmartlifeCoordinator = hass.data[DOMAIN][entry.entry_id]
     if coordinator.options.fan_mapping.power_key or coordinator.options.fan_mapping.power_action_siid:
         async_add_entities([DreameSmartlifeFanEntity(coordinator)])
 

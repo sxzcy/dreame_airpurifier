@@ -2,7 +2,7 @@
 
 我已经在工作区生成了一个 Home Assistant 自定义集成：
 
-- `custom_components/dreame_smartlife`
+- `custom_components/dreame_airpurifier`
 
 ## 目前已经打通的部分
 
@@ -11,12 +11,12 @@
 - 设备选择
 - `props` 状态轮询
 - `sendCommand` 原始命令通道
-- `dreame_smartlife.send_raw_command` 服务
+- `dreame_airpurifier.send_raw_command` 服务
 - FP10 默认映射
 
 ## 现在怎么用
 
-1. 把 `custom_components/dreame_smartlife` 复制到你的 HA 配置目录。
+1. 把 `custom_components/dreame_airpurifier` 复制到你的 HA 配置目录。
 2. 重启 HA。
 3. 在 HA 里添加集成 `Dreame Air Purifier FP10`。
 4. 输入 Dreame Smart Life 账号、密码、区域，例如 `eu` / `us` / `cn`。
@@ -50,7 +50,7 @@
 
 我还加了一个本地命令行脚本：
 
-- `tools/dreame_smartlife_probe.py`
+- `tools/dreame_airpurifier_probe.py`
 
 它可以：
 
@@ -62,7 +62,7 @@
 示例：
 
 ```powershell
-python tools/dreame_smartlife_probe.py --username 你的账号 --password 你的密码 --region eu --device-index 0 --max-siid 8 --max-piid 16
+python tools/dreame_airpurifier_probe.py --username 你的账号 --password 你的密码 --region eu --device-index 0 --max-siid 8 --max-piid 16
 ```
 
 ## 映射怎么配
@@ -83,7 +83,7 @@ python tools/dreame_smartlife_probe.py --username 你的账号 --password 你的
 
 示例在：
 
-- `custom_components/dreame_smartlife/README.md`
+- `custom_components/dreame_airpurifier/README.md`
 
 ## 现在的建议
 

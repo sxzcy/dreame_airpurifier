@@ -98,7 +98,7 @@ class DreameSmartlifeClient:
             "username": self._username,
             "password": password_hash,
         }
-        _LOGGER.debug("Logging in to Dreame Smart Life: %s", url)
+        _LOGGER.debug("Logging in to Dreame air purifier cloud: %s", url)
         try:
             async with self._session.post(url, headers=self._token_headers(), data=payload, timeout=20) as response:
                 response.raise_for_status()
@@ -131,7 +131,7 @@ class DreameSmartlifeClient:
             self._uid = str(data.get("uid", "")) or None
             self._region = str(data.get("region", region)).lower()
             self._domain = data.get("domain") or self.base_url
-            _LOGGER.debug("Logged in to Dreame Smart Life using region %s", self._region)
+            _LOGGER.debug("Logged in to Dreame air purifier cloud using region %s", self._region)
             return data
 
         if last_error is not None:
@@ -200,7 +200,7 @@ class DreameSmartlifeClient:
         result = await self._async_post_json(url, envelope)
         if isinstance(result, dict):
             return result
-        _LOGGER.debug("Unexpected Dreame Smart Life command response for %s: %r", method, result)
+        _LOGGER.debug("Unexpected Dreame air purifier command response for %s: %r", method, result)
         return {}
 
     async def async_get_properties_raw(

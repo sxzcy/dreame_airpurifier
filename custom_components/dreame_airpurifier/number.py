@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
 
+from .const import DOMAIN
 from .coordinator import DreameSmartlifeCoordinator
 from .entity import DreameSmartlifeEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    coordinator: DreameSmartlifeCoordinator = hass.data["dreame_smartlife"][entry.entry_id]
+    coordinator: DreameSmartlifeCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
         DreameSmartlifeMappedNumber(coordinator, name, mapping)
         for name, mapping in coordinator.options.number_mappings.items()

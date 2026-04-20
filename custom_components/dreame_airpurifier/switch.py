@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from homeassistant.components.switch import SwitchEntity
 
+from .const import DOMAIN
 from .coordinator import DreameSmartlifeCoordinator
 from .entity import DreameSmartlifeEntity
 from .utils import values_equal
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    coordinator: DreameSmartlifeCoordinator = hass.data["dreame_smartlife"][entry.entry_id]
+    coordinator: DreameSmartlifeCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
         DreameSmartlifeMappedSwitch(coordinator, name, mapping)
         for name, mapping in coordinator.options.switch_mappings.items()

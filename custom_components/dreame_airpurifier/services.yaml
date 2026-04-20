@@ -1,6 +1,6 @@
 probe_properties:
   name: Probe Properties
-  description: Probe a Dreame Smart Life device for supported property values and store the result on the diagnostics sensor.
+  description: Probe a Dreame Air Purifier FP10 device for supported property values and store the result on the diagnostics sensor.
   fields:
     config_entry_id:
       required: true
@@ -9,7 +9,7 @@ probe_properties:
 
 send_raw_command:
   name: Send Raw Command
-  description: Send a raw cloud command envelope method to the Dreame Smart Life device.
+  description: Send a raw cloud command envelope method to the Dreame Air Purifier FP10 device.
   fields:
     config_entry_id:
       required: true

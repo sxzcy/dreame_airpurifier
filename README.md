@@ -25,7 +25,7 @@ Users log in from the Home Assistant UI with their own Dreame Smart Life account
 
 ### Manual
 
-1. Copy `custom_components/dreame_smartlife` into your Home Assistant configuration directory.
+1. Copy `custom_components/dreame_airpurifier` into your Home Assistant configuration directory.
 2. Restart Home Assistant.
 
 ## Setup

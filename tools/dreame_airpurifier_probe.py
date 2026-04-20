@@ -174,7 +174,7 @@ def suggest_mappings(props: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Probe Dreame Smart Life device properties.")
+    parser = argparse.ArgumentParser(description="Probe Dreame Air Purifier FP10 device properties.")
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", required=True)
     parser.add_argument("--region", default="eu")

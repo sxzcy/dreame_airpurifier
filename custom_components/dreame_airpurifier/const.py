@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from homeassistant.const import Platform
 
-DOMAIN = "dreame_smartlife"
+DOMAIN = "dreame_airpurifier"
 
 PLATFORMS: list[Platform] = [
     Platform.FAN,

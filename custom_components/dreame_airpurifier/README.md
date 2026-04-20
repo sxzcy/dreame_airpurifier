@@ -14,7 +14,7 @@ Implemented:
 
 ## Quick start
 
-1. Copy `custom_components/dreame_smartlife` into your Home Assistant config directory.
+1. Copy `custom_components/dreame_airpurifier` into your Home Assistant config directory.
 2. Restart Home Assistant.
 3. Add the `Dreame Air Purifier FP10` integration from the UI.
 4. Sign in with your own Dreame Smart Life account.

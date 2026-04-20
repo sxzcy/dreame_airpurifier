@@ -1,11 +1,11 @@
 {
-  "domain": "dreame_smartlife",
+  "domain": "dreame_airpurifier",
   "name": "Dreame Air Purifier FP10",
   "codeowners": [],
   "config_flow": true,
   "iot_class": "cloud_polling",
   "loggers": [
-    "custom_components.dreame_smartlife"
+    "custom_components.dreame_airpurifier"
   ],
   "requirements": [],
   "version": "0.2.0"

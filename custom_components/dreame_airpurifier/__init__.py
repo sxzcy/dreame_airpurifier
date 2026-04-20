@@ -33,7 +33,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     async def _get_coordinator(entry_id: str) -> DreameSmartlifeCoordinator:
         coordinator = hass.data[DOMAIN].get(entry_id)
         if coordinator is None:
-            raise HomeAssistantError(f"Unknown Dreame Smart Life entry: {entry_id}")
+            raise HomeAssistantError(f"Unknown Dreame Air Purifier FP10 entry: {entry_id}")
         return coordinator
 
     async def handle_probe(call: ServiceCall) -> None:

@@ -6,13 +6,13 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 
-from .const import ATTR_DEVICE_INFO, ATTR_DISCOVERED_PROPERTIES, ATTR_LAST_PROBE_AT, ATTR_OTC_INFO, ATTR_PROPERTIES
+from .const import ATTR_DEVICE_INFO, ATTR_DISCOVERED_PROPERTIES, ATTR_LAST_PROBE_AT, ATTR_OTC_INFO, ATTR_PROPERTIES, DOMAIN
 from .coordinator import DreameSmartlifeCoordinator
 from .entity import DreameSmartlifeEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    coordinator: DreameSmartlifeCoordinator = hass.data["dreame_smartlife"][entry.entry_id]
+    coordinator: DreameSmartlifeCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = [DreameSmartlifeDiagnosticsSensor(coordinator)]
 
     for name, mapping in coordinator.options.sensor_mappings.items():
