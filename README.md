@@ -14,6 +14,7 @@ Users log in from the Home Assistant UI with their own Dreame Smart Life account
 - configurable fan, sensor, switch, select, and number entities
 - built-in defaults for the FP10 model (`dreame.airp.u2513`)
 - FP10 purification modes exposed as fan preset modes, so HomeKit Bridge can attach them to the air purifier accessory
+- HomeKit Air Purifier manual mode mapped to FP10 strong purification through fan percentage control
 
 ## Installation
 

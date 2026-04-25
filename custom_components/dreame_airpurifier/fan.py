@@ -23,12 +23,13 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
         self._attr_name = self._mapping.entity_name
         self._attr_unique_id = f"{coordinator.device.descriptor.did}_fan"
         self._attr_preset_modes = list(self._mapping.speed_map.keys()) or None
+        self._attr_percentage_step = 100
 
     @property
     def supported_features(self) -> FanEntityFeature:
         features = FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
         if self._mapping.speed_key and self._mapping.speed_map:
-            features |= FanEntityFeature.PRESET_MODE
+            features |= FanEntityFeature.PRESET_MODE | FanEntityFeature.SET_SPEED
         return features
 
     @property
@@ -53,6 +54,12 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
             if values_equal(current, raw):
                 return label
         return None
+
+    @property
+    def percentage(self) -> int | None:
+        if self.is_on is False:
+            return 0
+        return 100
 
     async def async_turn_on(self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
         if self._mapping.power_action_siid and self._mapping.power_action_aiid and self._mapping.power_action_piid:
@@ -91,3 +98,9 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
         await self.coordinator.device.async_set_property(self._mapping.speed_key, value)
         self.coordinator.async_set_local_property(self._mapping.speed_key, value)
         self.coordinator.async_schedule_follow_up_refresh()
+
+    async def async_set_percentage(self, percentage: int) -> None:
+        if percentage <= 0:
+            await self.async_turn_off()
+            return
+        await self.async_set_preset_mode("强净化")
