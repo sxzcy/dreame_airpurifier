@@ -85,6 +85,8 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         if not self._mapping.speed_key:
             return
+        if self.is_on is False:
+            await self.async_turn_on()
         value = self._mapping.speed_map[preset_mode]
         await self.coordinator.device.async_set_property(self._mapping.speed_key, value)
         self.coordinator.async_set_local_property(self._mapping.speed_key, value)

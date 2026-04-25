@@ -22,9 +22,11 @@ def parse_csv_keys(value: str) -> list[str]:
     return list(dict.fromkeys(keys))
 
 
-def safe_json_loads(value: str, default: Any) -> Any:
+def safe_json_loads(value: Any, default: Any) -> Any:
     if not value:
         return default
+    if not isinstance(value, str):
+        return value
     try:
         return json.loads(value)
     except json.JSONDecodeError:
