@@ -24,10 +24,10 @@ class DreameSmartlifeMappedNumber(DreameSmartlifeEntity, NumberEntity):
         self._key = mapping["key"]
         self._attr_name = mapping.get("name", name.replace("_", " ").title())
         self._attr_unique_id = f"{coordinator.device.descriptor.did}_number_{name}"
-        self._attr_native_min_value = float(mapping.get("min", 0))
-        self._attr_native_max_value = float(mapping.get("max", 100))
-        self._attr_native_step = float(mapping.get("step", 1))
-        self._attr_mode = NumberMode(mapping.get("mode", "auto"))
+        self._attr_native_min_value = _float_or_default(mapping.get("min"), 0)
+        self._attr_native_max_value = _float_or_default(mapping.get("max"), 100)
+        self._attr_native_step = _float_or_default(mapping.get("step"), 1)
+        self._attr_mode = _number_mode_or_default(mapping.get("mode"))
         self._attr_native_unit_of_measurement = mapping.get("unit")
         self._attr_icon = mapping.get("icon")
 
@@ -46,3 +46,17 @@ class DreameSmartlifeMappedNumber(DreameSmartlifeEntity, NumberEntity):
         await self.coordinator.device.async_set_property(self._key, write_value)
         self.coordinator.async_set_local_property(self._key, write_value)
         self.coordinator.async_schedule_follow_up_refresh()
+
+
+def _float_or_default(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _number_mode_or_default(value) -> NumberMode:
+    try:
+        return NumberMode(value or NumberMode.AUTO)
+    except ValueError:
+        return NumberMode.AUTO

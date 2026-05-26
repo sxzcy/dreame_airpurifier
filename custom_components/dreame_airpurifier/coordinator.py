@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -21,7 +22,7 @@ from .const import (
     STORAGE_VERSION,
 )
 from .dreame.device import DreameSmartlifeDevice, DreameSmartlifeState
-from .dreame.exceptions import DreameSmartlifeError
+from .dreame.exceptions import DreameSmartlifeAuthError, DreameSmartlifeError
 from .dreame.models import descriptor_from_entry, load_options
 from .dreame.protocol import DreameSmartlifeClient
 
@@ -56,6 +57,8 @@ class DreameSmartlifeCoordinator(DataUpdateCoordinator[DreameSmartlifeState]):
     async def _async_update_data(self) -> DreameSmartlifeState:
         try:
             return await self.device.async_refresh(self.options.polled_keys)
+        except DreameSmartlifeAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
         except DreameSmartlifeError as err:
             raise UpdateFailed(str(err)) from err
 
@@ -66,9 +69,11 @@ class DreameSmartlifeCoordinator(DataUpdateCoordinator[DreameSmartlifeState]):
 
     async def async_initialize(self) -> None:
         cached = await self._store.async_load()
-        if not cached:
+        if not isinstance(cached, dict):
             return
-        self.device.state.discovered_properties = cached.get("discovered_properties", {})
+        discovered = cached.get("discovered_properties", {})
+        if isinstance(discovered, dict):
+            self.device.state.discovered_properties = discovered
         last_probe_at = cached.get("last_probe_at")
         if last_probe_at:
             from homeassistant.util import dt as dt_util
@@ -112,6 +117,15 @@ class DreameSmartlifeCoordinator(DataUpdateCoordinator[DreameSmartlifeState]):
             raise
         except Exception:
             _LOGGER.debug("Delayed Dreame Smart Life refresh failed", exc_info=True)
+
+    async def async_shutdown(self) -> None:
+        if self._follow_up_refresh_task and not self._follow_up_refresh_task.done():
+            self._follow_up_refresh_task.cancel()
+            try:
+                await self._follow_up_refresh_task
+            except asyncio.CancelledError:
+                pass
+        self._follow_up_refresh_task = None
 
     @property
     def diagnostics(self) -> dict[str, Any]:

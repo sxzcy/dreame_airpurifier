@@ -6,7 +6,7 @@ import logging
 import random
 from typing import Any
 
-from aiohttp import ClientResponseError, ClientSession
+from aiohttp import ClientError, ClientResponseError, ClientSession
 
 from ..const import (
     BASIC_AUTH,
@@ -23,7 +23,12 @@ from ..const import (
     USER_AGENT,
 )
 from ..utils import maybe_json
-from .exceptions import DreameSmartlifeApiError, DreameSmartlifeAuthError
+from .exceptions import (
+    DreameSmartlifeApiError,
+    DreameSmartlifeAuthError,
+    DreameSmartlifeCommandError,
+    DreameSmartlifeError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,6 +67,66 @@ class DreameSmartlifeClient:
     @staticmethod
     def _build_base_url(region: str) -> str:
         return f"https://{region}.iot.dreame.tech:13267"
+
+    @staticmethod
+    def _is_success_code(code: Any) -> bool:
+        return code in (None, 0, "0", 200, "200")
+
+    @staticmethod
+    def _response_message(data: dict[str, Any]) -> str:
+        return str(data.get("msg") or data.get("message") or data.get("error") or data)
+
+    @classmethod
+    def _raise_for_api_error(cls, data: Any, url: str) -> None:
+        if not isinstance(data, dict):
+            return
+        code = data.get("code")
+        if cls._is_success_code(code):
+            return
+        message = cls._response_message(data)
+        if str(code) in {"401", "403"}:
+            raise DreameSmartlifeAuthError(f"Authentication failed: {message}")
+        raise DreameSmartlifeApiError(f"API returned code {code}: {message} ({url})")
+
+    @classmethod
+    def _assert_command_success(cls, method: str, result: dict[str, Any]) -> None:
+        data = result.get("data")
+        if isinstance(data, list):
+            command_result = data
+            command_error = None
+        else:
+            payload = data if isinstance(data, dict) else result
+            command_error = payload.get("error") if isinstance(payload, dict) else None
+            command_result = payload.get("result") if isinstance(payload, dict) else None
+        if command_error:
+            raise DreameSmartlifeCommandError(f"{method} failed: {command_error}")
+
+        if isinstance(command_result, dict):
+            items = [command_result]
+        elif isinstance(command_result, list):
+            items = command_result
+        else:
+            return
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if cls._is_success_code(item.get("code")):
+                continue
+            raise DreameSmartlifeCommandError(f"{method} failed for {item}")
+
+    @staticmethod
+    def _extract_command_result(result: dict[str, Any]) -> list[dict[str, Any]]:
+        data = result.get("data")
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        payload = data if isinstance(data, dict) else result
+        raw_result = payload.get("result") if isinstance(payload, dict) else None
+        if isinstance(raw_result, list):
+            return [item for item in raw_result if isinstance(item, dict)]
+        if isinstance(raw_result, dict):
+            return [raw_result]
+        return []
 
     def _token_headers(self) -> dict[str, str]:
         return {
@@ -104,9 +169,13 @@ class DreameSmartlifeClient:
                 response.raise_for_status()
                 data = await response.json(content_type=None)
         except ClientResponseError as err:
-            raise DreameSmartlifeAuthError(f"Login failed with HTTP {err.status}") from err
+            if err.status in (400, 401, 403):
+                raise DreameSmartlifeAuthError(f"Login failed with HTTP {err.status}") from err
+            raise DreameSmartlifeApiError(f"Login request failed with HTTP {err.status}: {url}") from err
+        except (asyncio.TimeoutError, ClientError) as err:
+            raise DreameSmartlifeApiError(f"Login request failed: {err}") from err
         except Exception as err:
-            raise DreameSmartlifeAuthError(f"Login failed: {err}") from err
+            raise DreameSmartlifeApiError(f"Unexpected login failure: {err}") from err
 
         if "access_token" not in data:
             raise DreameSmartlifeAuthError(f"Unexpected login response: {data}")
@@ -114,12 +183,12 @@ class DreameSmartlifeClient:
 
     async def async_login(self) -> dict[str, Any]:
         regions = KNOWN_REGIONS if self._requested_region == REGION_AUTO else (self._requested_region,)
-        last_error: DreameSmartlifeAuthError | None = None
+        last_error: DreameSmartlifeError | None = None
 
         for region in regions:
             try:
                 data = await self._async_login_region(region)
-            except DreameSmartlifeAuthError as err:
+            except DreameSmartlifeError as err:
                 last_error = err
                 if self._requested_region != REGION_AUTO:
                     raise
@@ -144,27 +213,40 @@ class DreameSmartlifeClient:
         try:
             async with self._session.post(url, headers=self._json_headers(), json=payload, timeout=20) as response:
                 response.raise_for_status()
-                return await response.json(content_type=None)
+                data = await response.json(content_type=None)
+                self._raise_for_api_error(data, url)
+                return data
         except ClientResponseError as err:
             if retry and err.status in (401, 403):
                 await self.async_login()
                 return await self._async_post_json(url, payload, retry=False)
+            if err.status in (401, 403):
+                raise DreameSmartlifeAuthError(f"Request failed with HTTP {err.status}: {url}") from err
             raise DreameSmartlifeApiError(f"Request failed with HTTP {err.status}: {url}") from err
-        except Exception as err:
+        except DreameSmartlifeAuthError:
+            raise
+        except DreameSmartlifeApiError:
+            raise
+        except (asyncio.TimeoutError, ClientError) as err:
             raise DreameSmartlifeApiError(f"Request failed: {err}") from err
+        except Exception as err:
+            raise DreameSmartlifeApiError(f"Unexpected request failure: {err}") from err
 
     async def async_list_devices(self) -> list[dict[str, Any]]:
         url = f"{self.base_url}{DEVICE_LIST_PATH}"
         payload = {"page": 1, "size": 100}
         data = await self._async_post_json(url, payload)
-        return data.get("data", {}).get("page", {}).get("records", [])
+        payload_data = data.get("data", {}) if isinstance(data, dict) else {}
+        page = payload_data.get("page", {}) if isinstance(payload_data, dict) else {}
+        records = page.get("records", []) if isinstance(page, dict) else []
+        return records if isinstance(records, list) else []
 
     async def async_get_props(self, did: str, keys: list[str]) -> list[dict[str, Any]]:
         if not keys:
             return []
         url = f"{self.base_url}{PROPS_PATH}"
         data = await self._async_post_json(url, {"did": did, "keys": ",".join(keys)})
-        result = data.get("data", [])
+        result = data.get("data", []) if isinstance(data, dict) else []
         if isinstance(result, list):
             return result
         return []
@@ -172,9 +254,12 @@ class DreameSmartlifeClient:
     async def async_get_otc_info(self, did: str) -> dict[str, Any]:
         url = f"{self.base_url}{OTC_INFO_PATH}"
         data = await self._async_post_json(url, {"did": did})
-        return data.get("data", {})
+        result = data.get("data", {}) if isinstance(data, dict) else {}
+        return result if isinstance(result, dict) else {}
 
     def _command_url(self, bind_domain: str) -> str:
+        if not bind_domain:
+            raise DreameSmartlifeApiError("Missing Dreame bind domain for command request")
         host = bind_domain.split(".", 1)[0]
         return f"{self.base_url}{SEND_COMMAND_PREFIX}{host}{SEND_COMMAND_SUFFIX}"
 
@@ -212,7 +297,7 @@ class DreameSmartlifeClient:
         result = await self.async_send_command(bind_domain, did, "get_properties", requests)
         if not isinstance(result, dict):
             return []
-        return result.get("data", {}).get("result", []) or result.get("result", []) or []
+        return self._extract_command_result(result)
 
     async def async_set_properties(
         self,
@@ -223,7 +308,8 @@ class DreameSmartlifeClient:
         result = await self.async_send_command(bind_domain, did, "set_properties", values)
         if not isinstance(result, dict):
             return []
-        return result.get("data", {}).get("result", []) or result.get("result", []) or []
+        self._assert_command_success("set_properties", result)
+        return self._extract_command_result(result)
 
     async def async_action(
         self,
@@ -241,6 +327,7 @@ class DreameSmartlifeClient:
         }
         result = await self.async_send_command(bind_domain, did, "action", params)
         if isinstance(result, dict):
+            self._assert_command_success("action", result)
             return result
         return {}
 
@@ -264,7 +351,7 @@ class DreameSmartlifeClient:
             for item in result:
                 if not isinstance(item, dict):
                     continue
-                if item.get("code") != 0:
+                if not self._is_success_code(item.get("code")):
                     continue
                 key = f"{item.get('siid')}.{item.get('piid')}"
                 value = maybe_json(item.get("value"))

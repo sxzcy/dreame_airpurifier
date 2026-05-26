@@ -5,6 +5,7 @@ import re
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import EntityCategory
 
 from .const import ATTR_DEVICE_INFO, ATTR_DISCOVERED_PROPERTIES, ATTR_LAST_PROBE_AT, ATTR_OTC_INFO, ATTR_PROPERTIES, DOMAIN
 from .coordinator import DreameSmartlifeCoordinator
@@ -24,8 +25,10 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
 
 
 class DreameSmartlifeDiagnosticsSensor(DreameSmartlifeEntity, SensorEntity):
-    _attr_name = "诊断"
-    _attr_icon = "mdi:stethoscope"
+    _attr_name = "调试信息"
+    _attr_icon = "mdi:tools"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: DreameSmartlifeCoordinator) -> None:
         super().__init__(coordinator)

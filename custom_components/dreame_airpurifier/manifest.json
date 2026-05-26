@@ -1,6 +1,6 @@
 {
   "domain": "dreame_airpurifier",
-  "name": "Dreame Air Purifier FP10",
+  "name": "Dreame FP10 Air Purifier",
   "codeowners": [],
   "config_flow": true,
   "iot_class": "cloud_polling",

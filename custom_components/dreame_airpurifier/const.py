@@ -7,6 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "dreame_airpurifier"
 
 PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
     Platform.FAN,
     Platform.NUMBER,
     Platform.SELECT,
@@ -14,7 +15,7 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
 ]
 
-DEFAULT_NAME = "Dreame Air Purifier FP10"
+DEFAULT_NAME = "Dreame FP10"
 REGION_AUTO = "auto"
 REGION_OPTIONS: dict[str, str] = {
     REGION_AUTO: "Auto detect",

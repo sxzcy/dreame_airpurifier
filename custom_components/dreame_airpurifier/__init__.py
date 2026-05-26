@@ -33,7 +33,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     async def _get_coordinator(entry_id: str) -> DreameSmartlifeCoordinator:
         coordinator = hass.data[DOMAIN].get(entry_id)
         if coordinator is None:
-            raise HomeAssistantError(f"Unknown Dreame Air Purifier FP10 entry: {entry_id}")
+            raise HomeAssistantError(f"Unknown Dreame FP10 Air Purifier entry: {entry_id}")
         return coordinator
 
     async def handle_probe(call: ServiceCall) -> None:
@@ -68,7 +68,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
+        if coordinator:
+            await coordinator.async_shutdown()
     return unload_ok
 
 

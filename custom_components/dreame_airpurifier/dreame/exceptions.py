@@ -11,3 +11,7 @@ class DreameSmartlifeAuthError(DreameSmartlifeError):
 
 class DreameSmartlifeApiError(DreameSmartlifeError):
     """Remote API error."""
+
+
+class DreameSmartlifeCommandError(DreameSmartlifeApiError):
+    """Remote command was rejected by the device or cloud."""

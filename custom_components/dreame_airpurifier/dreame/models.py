@@ -33,6 +33,7 @@ from ..const import (
     DEFAULT_PROBE_MAX_PIID,
     DEFAULT_PROBE_MAX_SIID,
     DEFAULT_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
 )
 from ..utils import coerce_option_value, parse_csv_keys, parse_key, safe_json_loads
 
@@ -49,7 +50,7 @@ class DreameDeviceDescriptor:
 
 @dataclass(slots=True)
 class DreameFanMapping:
-    entity_name: str
+    entity_name: str | None
     power_key: str | None
     power_on_value: Any
     power_off_value: Any
@@ -83,13 +84,13 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
         CONF_SENSOR_MAPPINGS: {
             "display_value": {
                 "key": "3.13",
-                "name": "当前显示值",
-                "icon": "mdi:blur",
+                "name": "屏显数值",
+                "icon": "mdi:counter",
             },
             "air_quality_level": {
                 "key": "3.4",
                 "name": "空气质量等级",
-                "icon": "mdi:weather-windy",
+                "icon": "mdi:air-filter",
                 "value_map": {
                     "1": "优",
                     "2": "良",
@@ -101,34 +102,34 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
                 "key": "3.5",
                 "name": "PM2.5",
                 "unit": "ug/m3",
-                "icon": "mdi:blur"
+                "icon": "mdi:molecule"
             },
             "pm10": {
                 "key": "3.6",
                 "name": "PM10",
                 "unit": "ug/m3",
-                "icon": "mdi:blur-linear"
+                "icon": "mdi:molecule"
             },
             "tvoc": {
                 "key": "3.7",
                 "name": "TVOC",
                 "unit": "ug/m3",
-                "icon": "mdi:molecule"
+                "icon": "mdi:chemical-weapon"
             },
             "aq": {
                 "key": "3.8",
-                "name": "AQ",
+                "name": "综合空气质量",
                 "icon": "mdi:weather-windy"
             },
             "hepa_filter_life": {
                 "key": "4.1",
-                "name": "HEPA滤芯寿命",
+                "name": "HEPA 滤芯寿命",
                 "unit": "%",
                 "icon": "mdi:air-filter",
             },
             "hepa_filter_life_days": {
                 "key": "4.2",
-                "name": "HEPA滤芯剩余天数",
+                "name": "HEPA 剩余天数",
                 "unit": "d",
                 "icon": "mdi:calendar-clock",
             },
@@ -136,18 +137,18 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
                 "key": "4.4",
                 "name": "集毛盒寿命",
                 "unit": "%",
-                "icon": "mdi:gauge",
+                "icon": "mdi:tray-full",
             },
             "combbox_life_days": {
                 "key": "4.5",
                 "name": "集毛盒剩余天数",
                 "unit": "d",
-                "icon": "mdi:gauge",
+                "icon": "mdi:calendar-clock",
             },
             "status_code": {
                 "key": "2.1",
-                "name": "运行状态代码",
-                "icon": "mdi:information-outline",
+                "name": "运行状态",
+                "icon": "mdi:power-cycle",
                 "value_map": {
                     "1": "工作中",
                     "2": "待机"
@@ -155,7 +156,7 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
             },
             "error_code": {
                 "key": "2.2",
-                "name": "错误代码",
+                "name": "故障代码",
                 "icon": "mdi:alert-circle-outline",
             },
             "current_speed": {
@@ -170,7 +171,7 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
                 "name": "童锁",
                 "on": 1,
                 "off": 0,
-                "icon": "mdi:account-lock",
+                "icon": "mdi:lock",
             }
         },
         CONF_NUMBER_MAPPINGS: {
@@ -181,13 +182,14 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
                 "max": 10,
                 "step": 1,
                 "mode": "slider",
-                "icon": "mdi:fan"
+                "icon": "mdi:fan-speed-3"
             }
         },
         CONF_SELECT_MAPPINGS: {
             "wind_mode": {
                 "key": "2.3",
                 "name": "净化模式",
+                "icon": "mdi:fan-auto",
                 "options": {
                     "智能净化": 0,
                     "强净化": 1,
@@ -197,7 +199,7 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
                 },
             },
         },
-        CONF_FAN_ENTITY_NAME: "净化器",
+        CONF_FAN_ENTITY_NAME: None,
         CONF_FAN_POWER_KEY: "",
         CONF_FAN_SPEED_KEY: "2.3",
         CONF_FAN_SPEED_MAP: {
@@ -215,6 +217,26 @@ MODEL_DEFAULTS: dict[str, dict[str, Any]] = {
         CONF_FAN_POWER_ACTION_PIID: 1,
     }
 }
+
+
+def _option_is_blank(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and value.strip() == "")
+
+
+def _parse_int(value: Any, default: int | None = None) -> int | None:
+    if _option_is_blank(value):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_watched_keys(value: Any, default: str) -> list[str]:
+    try:
+        return parse_csv_keys(str(value or ""))
+    except (AttributeError, TypeError, ValueError):
+        return parse_csv_keys(default)
 
 
 def _append_key(target: list[str], key: Any) -> None:
@@ -257,12 +279,15 @@ def _build_polled_keys(
 
 
 def load_options(data: dict[str, Any], options: dict[str, Any]) -> DreameIntegrationOptions:
-    merged: dict[str, Any] = {}
     model = str(data.get(CONF_DEVICE_MODEL, "")).lower()
-    if model in MODEL_DEFAULTS:
-        merged.update(MODEL_DEFAULTS[model])
+    defaults = MODEL_DEFAULTS.get(model, {})
+    merged: dict[str, Any] = dict(defaults)
     merged.update(data)
-    merged.update(options)
+    for key, value in options.items():
+        if _option_is_blank(value):
+            continue
+        merged[key] = value
+
     fan_speed_map = safe_json_loads(merged.get(CONF_FAN_SPEED_MAP, ""), {})
     sensor_mappings = merged.get(CONF_SENSOR_MAPPINGS, {})
     switch_mappings = merged.get(CONF_SWITCH_MAPPINGS, {})
@@ -276,9 +301,9 @@ def load_options(data: dict[str, Any], options: dict[str, Any]) -> DreameIntegra
         number_mappings = safe_json_loads(number_mappings, {})
     if isinstance(select_mappings, str):
         select_mappings = safe_json_loads(select_mappings, {})
-    watched_keys = parse_csv_keys(merged.get(CONF_WATCHED_KEYS, ""))
+    watched_keys = _parse_watched_keys(merged.get(CONF_WATCHED_KEYS, ""), defaults.get(CONF_WATCHED_KEYS, ""))
     fan_mapping = DreameFanMapping(
-        entity_name=merged.get(CONF_FAN_ENTITY_NAME, DEFAULT_NAME),
+        entity_name=merged.get(CONF_FAN_ENTITY_NAME) or None,
         power_key=merged.get(CONF_FAN_POWER_KEY) or None,
         power_on_value=coerce_option_value(str(merged.get(CONF_FAN_POWER_ON_VALUE, "1"))),
         power_off_value=coerce_option_value(str(merged.get(CONF_FAN_POWER_OFF_VALUE, "0"))),
@@ -287,12 +312,15 @@ def load_options(data: dict[str, Any], options: dict[str, Any]) -> DreameIntegra
         status_off_value=coerce_option_value(str(merged.get(CONF_FAN_STATUS_OFF_VALUE, ""))),
         speed_key=merged.get(CONF_FAN_SPEED_KEY) or None,
         speed_map=fan_speed_map if isinstance(fan_speed_map, dict) else {},
-        power_action_siid=int(merged[CONF_FAN_POWER_ACTION_SIID]) if merged.get(CONF_FAN_POWER_ACTION_SIID) not in (None, "") else None,
-        power_action_aiid=int(merged[CONF_FAN_POWER_ACTION_AIID]) if merged.get(CONF_FAN_POWER_ACTION_AIID) not in (None, "") else None,
-        power_action_piid=int(merged[CONF_FAN_POWER_ACTION_PIID]) if merged.get(CONF_FAN_POWER_ACTION_PIID) not in (None, "") else None,
+        power_action_siid=_parse_int(merged.get(CONF_FAN_POWER_ACTION_SIID)),
+        power_action_aiid=_parse_int(merged.get(CONF_FAN_POWER_ACTION_AIID)),
+        power_action_piid=_parse_int(merged.get(CONF_FAN_POWER_ACTION_PIID)),
     )
     return DreameIntegrationOptions(
-        scan_interval=max(int(merged.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)), 15),
+        scan_interval=max(
+            _parse_int(merged.get(CONF_SCAN_INTERVAL), DEFAULT_SCAN_INTERVAL) or DEFAULT_SCAN_INTERVAL,
+            MIN_SCAN_INTERVAL,
+        ),
         watched_keys=watched_keys,
         polled_keys=_build_polled_keys(
             watched_keys,
@@ -307,8 +335,8 @@ def load_options(data: dict[str, Any], options: dict[str, Any]) -> DreameIntegra
         number_mappings=number_mappings if isinstance(number_mappings, dict) else {},
         select_mappings=select_mappings if isinstance(select_mappings, dict) else {},
         fan_mapping=fan_mapping,
-        probe_max_siid=int(merged.get(CONF_PROBE_MAX_SIID, DEFAULT_PROBE_MAX_SIID)),
-        probe_max_piid=int(merged.get(CONF_PROBE_MAX_PIID, DEFAULT_PROBE_MAX_PIID)),
+        probe_max_siid=_parse_int(merged.get(CONF_PROBE_MAX_SIID), DEFAULT_PROBE_MAX_SIID) or DEFAULT_PROBE_MAX_SIID,
+        probe_max_piid=_parse_int(merged.get(CONF_PROBE_MAX_PIID), DEFAULT_PROBE_MAX_PIID) or DEFAULT_PROBE_MAX_PIID,
     )
 
 

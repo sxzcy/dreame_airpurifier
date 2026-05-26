@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Dreame 空气净化器 FP10",
-        "description": "使用你自己的 Dreame Smart Life 账号登录 FP10 空气净化器。如果不确定区域，选择自动识别即可。",
+        "title": "Dreame FP10 空气净化器",
+        "description": "使用 Dreame Smart Life 账号登录 FP10 空气净化器。如果不确定区域，选择自动识别即可。",
         "data": {
           "username": "账号",
           "password": "密码",
@@ -18,18 +18,20 @@
       }
     },
     "abort": {
-      "already_configured": "这个设备已经配置过了。"
+      "already_configured": "这个设备已经配置过了。",
+      "reauth_successful": "重新认证成功。"
     },
     "error": {
       "cannot_connect": "无法连接",
       "invalid_auth": "账号或密码错误",
-      "no_devices": "这个账号下没有找到设备"
+      "no_devices": "这个账号下没有找到设备",
+      "reauth_device_missing": "这个账号下没有找到当前已配置的设备"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Dreame 空气净化器 FP10 选项",
+        "title": "Dreame FP10 空气净化器选项",
         "description": "监控属性使用逗号分隔，映射字段使用 JSON。",
         "data": {
           "scan_interval": "轮询间隔（秒）",
@@ -38,7 +40,7 @@
           "switch_mappings": "开关映射 JSON",
           "select_mappings": "选择器映射 JSON",
           "number_mappings": "数值映射 JSON",
-          "fan_entity_name": "风扇实体名称",
+          "fan_entity_name": "风扇显示名覆盖",
           "fan_power_key": "风扇电源键",
           "fan_power_on_value": "风扇开机值",
           "fan_power_off_value": "风扇关机值",
@@ -54,6 +56,11 @@
           "probe_max_piid": "探测最大 PIID"
         }
       }
+    },
+    "error": {
+      "invalid_json": "请输入 JSON 对象。",
+      "invalid_key": "请使用类似 2.1 的 MIOT 属性键格式。",
+      "invalid_number": "请输入正整数。"
     }
   }
 }

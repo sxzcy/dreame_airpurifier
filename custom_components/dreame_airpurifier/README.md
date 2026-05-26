@@ -1,6 +1,6 @@
-# Dreame Air Purifier FP10
+# Dreame FP10 Air Purifier
 
-Home Assistant custom integration for the Dreame Air Purifier FP10.
+Home Assistant custom integration for the Dreame FP10 Air Purifier.
 
 Implemented:
 
@@ -16,7 +16,7 @@ Implemented:
 
 1. Copy `custom_components/dreame_airpurifier` into your Home Assistant config directory.
 2. Restart Home Assistant.
-3. Add the `Dreame Air Purifier FP10` integration from the UI.
+3. Add the `Dreame FP10 Air Purifier` integration from the UI.
 4. Sign in with your own Dreame Smart Life account.
 5. Leave the region on `Auto detect` unless you already know the correct region.
 6. Select your device.
@@ -33,7 +33,7 @@ This integration is intended for the FP10 model family, currently mapped as `dre
     "key": "4.2",
     "name": "PM2.5",
     "unit": "ug/m3",
-    "icon": "mdi:blur"
+    "icon": "mdi:molecule"
   },
   "temperature": {
     "key": "4.8",

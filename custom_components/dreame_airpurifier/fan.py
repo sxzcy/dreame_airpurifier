@@ -29,7 +29,7 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
     def supported_features(self) -> FanEntityFeature:
         features = FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
         if self._mapping.speed_key and self._mapping.speed_map:
-            features |= FanEntityFeature.PRESET_MODE | FanEntityFeature.SET_SPEED
+            features |= FanEntityFeature.PRESET_MODE
         return features
 
     @property
@@ -62,6 +62,9 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
         return 100
 
     async def async_turn_on(self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
+        if percentage is not None and percentage <= 0:
+            await self.async_turn_off()
+            return
         if self._mapping.power_action_siid and self._mapping.power_action_aiid and self._mapping.power_action_piid:
             await self.coordinator.device.async_action(
                 self._mapping.power_action_siid,
@@ -92,6 +95,8 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         if not self._mapping.speed_key:
             return
+        if preset_mode not in self._mapping.speed_map:
+            raise ValueError(f"Unsupported preset mode: {preset_mode}")
         if self.is_on is False:
             await self.async_turn_on()
         value = self._mapping.speed_map[preset_mode]
@@ -103,4 +108,4 @@ class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
         if percentage <= 0:
             await self.async_turn_off()
             return
-        await self.async_set_preset_mode("强净化")
+        await self.async_turn_on()
