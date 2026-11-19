@@ -1,22 +1,17 @@
+"""Constants for the Dreame FP10 Air Purifier integration."""
+
 from __future__ import annotations
 
-from datetime import timedelta
-
-from homeassistant.const import Platform
+from collections.abc import Mapping
+from types import MappingProxyType
+from typing import Any
 
 DOMAIN = "dreame_airpurifier"
-
-PLATFORMS: list[Platform] = [
-    Platform.BUTTON,
-    Platform.FAN,
-    Platform.NUMBER,
-    Platform.SELECT,
-    Platform.SENSOR,
-    Platform.SWITCH,
-]
-
 DEFAULT_NAME = "Dreame FP10"
+FP10_MODEL = "dreame.airp.u2513"
+
 REGION_AUTO = "auto"
+DEFAULT_REGION = REGION_AUTO
 REGION_OPTIONS: dict[str, str] = {
     REGION_AUTO: "Auto detect",
     "eu": "Europe (eu)",
@@ -26,15 +21,15 @@ REGION_OPTIONS: dict[str, str] = {
     "sg": "Singapore (sg)",
     "kr": "Korea (kr)",
 }
-KNOWN_REGIONS: tuple[str, ...] = tuple(region for region in REGION_OPTIONS if region != REGION_AUTO)
-DEFAULT_REGION = REGION_AUTO
-DEFAULT_SCAN_INTERVAL = 30
-DEFAULT_PROBE_MAX_SIID = 8
-DEFAULT_PROBE_MAX_PIID = 16
-DEFAULT_PROBE_CHUNK_SIZE = 20
-MIN_SCAN_INTERVAL = 15
+KNOWN_REGIONS: tuple[str, ...] = ("eu", "us", "cn", "ru", "sg", "kr")
 
-SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
+DEFAULT_SCAN_INTERVAL = 30
+MIN_SCAN_INTERVAL = 15
+MAX_SCAN_INTERVAL = 300
+OTC_REFRESH_INTERVAL = 1800
+DEFAULT_REQUEST_TIMEOUT = 20
+AUTO_REGION_CONNECT_TIMEOUT = 3
+AUTO_REGION_TOTAL_TIMEOUT = 5
 
 CONF_BIND_DOMAIN = "bind_domain"
 CONF_DID = "did"
@@ -43,42 +38,8 @@ CONF_DEVICE_NAME = "device_name"
 CONF_MAC = "mac"
 CONF_REGION = "region"
 CONF_SCAN_INTERVAL = "scan_interval"
-CONF_WATCHED_KEYS = "watched_keys"
-CONF_SENSOR_MAPPINGS = "sensor_mappings"
-CONF_SWITCH_MAPPINGS = "switch_mappings"
-CONF_SELECT_MAPPINGS = "select_mappings"
-CONF_NUMBER_MAPPINGS = "number_mappings"
-CONF_FAN_ENTITY_NAME = "fan_entity_name"
-CONF_FAN_POWER_KEY = "fan_power_key"
-CONF_FAN_POWER_ON_VALUE = "fan_power_on_value"
-CONF_FAN_POWER_OFF_VALUE = "fan_power_off_value"
-CONF_FAN_STATUS_KEY = "fan_status_key"
-CONF_FAN_STATUS_ON_VALUE = "fan_status_on_value"
-CONF_FAN_STATUS_OFF_VALUE = "fan_status_off_value"
-CONF_FAN_SPEED_KEY = "fan_speed_key"
-CONF_FAN_SPEED_MAP = "fan_speed_map"
-CONF_FAN_POWER_ACTION_SIID = "fan_power_action_siid"
-CONF_FAN_POWER_ACTION_AIID = "fan_power_action_aiid"
-CONF_FAN_POWER_ACTION_PIID = "fan_power_action_piid"
-CONF_PROBE_MAX_SIID = "probe_max_siid"
-CONF_PROBE_MAX_PIID = "probe_max_piid"
 
-ATTR_BIND_DOMAIN = "bind_domain"
-ATTR_DEVICE = "device"
-ATTR_DEVICE_INFO = "device_info"
-ATTR_DISCOVERED_PROPERTIES = "discovered_properties"
-ATTR_LAST_PROBE_AT = "last_probe_at"
-ATTR_OTC_INFO = "otc_info"
-ATTR_PROPERTIES = "properties"
-ATTR_RAW_RESPONSE = "raw_response"
-ATTR_WATCHED_PROPERTIES = "watched_properties"
-
-STORAGE_VERSION = 1
-STORAGE_KEY_PREFIX = f"{DOMAIN}_probe_"
-
-SERVICE_PROBE_PROPERTIES = "probe_properties"
-SERVICE_SEND_RAW_COMMAND = "send_raw_command"
-
+DEFAULT_TENANT_ID = "000000"
 USER_AGENT = "Dreame_Smarthome/1.5.59 (iPhone; iOS 16.0; Scale/3.00)"
 DREAME_RLC = "1c80b3787b2266776bcdc481f37d8fa42ba10a30af81a6df-1"
 BASIC_AUTH = "Basic ZHJlYW1lX2FwcHYxOkFQXmR2QHpAU1FZVnhOODg="
@@ -86,9 +47,51 @@ PASSWORD_SALT = "RAylYC%fmSKp7%Tq"
 
 TOKEN_PATH = "/dreame-auth/oauth/token"
 DEVICE_LIST_PATH = "/dreame-user-iot/iotuserbind/device/listV2"
-DEVICE_INFO_PATH = "/dreame-user-iot/iotuserbind/device/info"
 OTC_INFO_PATH = "/dreame-user-iot/iotstatus/devOTCInfo"
 PROPS_PATH = "/dreame-user-iot/iotstatus/props"
-HISTORY_PATH = "/dreame-user-iot/iotstatus/history"
 SEND_COMMAND_PREFIX = "/dreame-iot-com-"
 SEND_COMMAND_SUFFIX = "/device/sendCommand"
+
+# FP10 (dreame.airp.u2513) MIOT SIID.PIID keys & hardware values
+PROP_STATUS, PROP_ERROR_CODE, PROP_WIND_MODE, PROP_FAN_SPEED, PROP_CHILD_LOCK = (
+    "2.1", "2.2", "2.3", "2.4", "2.5",
+)
+PROP_AIR_QUALITY_LEVEL, PROP_PM25, PROP_PM10, PROP_TVOC, PROP_AQ, PROP_DISPLAY_VALUE = (
+    "3.4", "3.5", "3.6", "3.7", "3.8", "3.13",
+)
+PROP_HEPA_FILTER_LIFE, PROP_HEPA_FILTER_DAYS, PROP_COMBBOX_LIFE, PROP_COMBBOX_DAYS = (
+    "4.1", "4.2", "4.4", "4.5",
+)
+FP10_POLLED_KEYS: tuple[str, ...] = (
+    PROP_STATUS, PROP_ERROR_CODE, PROP_WIND_MODE, PROP_FAN_SPEED, PROP_CHILD_LOCK,
+    PROP_AIR_QUALITY_LEVEL, PROP_PM25, PROP_PM10, PROP_TVOC, PROP_AQ,
+    PROP_DISPLAY_VALUE, PROP_HEPA_FILTER_LIFE, PROP_HEPA_FILTER_DAYS,
+    PROP_COMBBOX_LIFE, PROP_COMBBOX_DAYS,
+)
+
+FP10_STATUS_ON, FP10_STATUS_OFF = 1, 2
+FP10_POWER_ACTION_SIID, FP10_POWER_ACTION_AIID, FP10_POWER_ACTION_PIID = 2, 1, 1
+FP10_POWER_ON_VALUE, FP10_POWER_OFF_VALUE = 1, 0
+FP10_CHILD_LOCK_ON, FP10_CHILD_LOCK_OFF = 1, 0
+FP10_SPEED_MIN, FP10_SPEED_MAX = 1, 10
+FP10_SPEED_RANGE: tuple[int, int] = (FP10_SPEED_MIN, FP10_SPEED_MAX)
+
+WIND_MODE_OPTIONS: Mapping[str, int] = MappingProxyType(
+    {"智能净化": 0, "强净化": 1, "睡眠净化": 2, "自定义": 3, "宠物模式": 4}
+)
+FAN_PRESET_MODES: Mapping[str, int] = MappingProxyType(
+    {"auto": 0, "强净化": 1, "睡眠净化": 2, "自定义": 3, "宠物模式": 4}
+)
+AIR_QUALITY_LEVEL_MAP: Mapping[str, str] = MappingProxyType(
+    {"1": "优", "2": "良", "3": "中", "4": "差"}
+)
+STATUS_CODE_MAP: Mapping[str, str] = MappingProxyType({"1": "工作中", "2": "待机"})
+
+
+def clamp_scan_interval(value: Any) -> int:
+    """Coerce and clamp polling interval to [MIN_SCAN_INTERVAL, MAX_SCAN_INTERVAL]."""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_SCAN_INTERVAL
+    return max(MIN_SCAN_INTERVAL, min(MAX_SCAN_INTERVAL, parsed))

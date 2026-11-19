@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Dreame FP10 Air Purifier",
-        "description": "Sign in with your Dreame Smart Life account for the FP10 air purifier. Choose Auto detect if you're unsure about the region.",
+        "description": "Sign in with your Dreame Smart Life account. Choose Auto detect if you are unsure about the region.",
         "data": {
           "username": "Account",
           "password": "Password",
@@ -15,11 +15,21 @@
         "data": {
           "did": "Device"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Dreame FP10 Air Purifier",
+        "description": "Your Dreame Smart Life session expired. Sign in again to restore control.",
+        "data": {
+          "username": "Account",
+          "password": "Password",
+          "region": "Region"
+        }
       }
     },
     "abort": {
       "already_configured": "This device is already configured.",
-      "reauth_successful": "Re-authentication was successful."
+      "reauth_successful": "Re-authentication was successful.",
+      "unique_id_mismatch": "The selected device does not match the configured entry."
     },
     "error": {
       "cannot_connect": "Cannot connect",
@@ -32,35 +42,69 @@
     "step": {
       "init": {
         "title": "Dreame FP10 Air Purifier Options",
-        "description": "Use comma-separated keys for watched properties and JSON for mapping fields.",
+        "description": "Configure cloud polling frequency.",
         "data": {
-          "scan_interval": "Scan interval (seconds)",
-          "watched_keys": "Watched keys",
-          "sensor_mappings": "Sensor mappings JSON",
-          "switch_mappings": "Switch mappings JSON",
-          "select_mappings": "Select mappings JSON",
-          "number_mappings": "Number mappings JSON",
-          "fan_entity_name": "Fan display name override",
-          "fan_power_key": "Fan power key",
-          "fan_power_on_value": "Fan power on value",
-          "fan_power_off_value": "Fan power off value",
-          "fan_status_key": "Fan status key",
-          "fan_status_on_value": "Fan status on value",
-          "fan_status_off_value": "Fan status off value",
-          "fan_speed_key": "Fan speed key",
-          "fan_speed_map": "Fan speed map JSON",
-          "fan_power_action_siid": "Power action SIID",
-          "fan_power_action_aiid": "Power action AIID",
-          "fan_power_action_piid": "Power action PIID",
-          "probe_max_siid": "Probe max SIID",
-          "probe_max_piid": "Probe max PIID"
+          "scan_interval": "Scan interval (seconds)"
         }
       }
+    }
+  },
+  "entity": {
+    "number": {
+      "fan_speed": {
+        "name": "Fan speed"
+      }
     },
-    "error": {
-      "invalid_json": "Enter a JSON object.",
-      "invalid_key": "Use MIOT property key format like 2.1.",
-      "invalid_number": "Enter a positive integer."
+    "select": {
+      "wind_mode": {
+        "name": "Purification mode"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "Child lock"
+      }
+    },
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "tvoc": {
+        "name": "TVOC"
+      },
+      "aq": {
+        "name": "Air quality index"
+      },
+      "air_quality_level": {
+        "name": "Air quality level"
+      },
+      "display_value": {
+        "name": "Display value"
+      },
+      "current_speed": {
+        "name": "Current speed"
+      },
+      "hepa_filter_life": {
+        "name": "HEPA filter life"
+      },
+      "hepa_filter_life_days": {
+        "name": "HEPA filter remaining days"
+      },
+      "combbox_life": {
+        "name": "Hair collector life"
+      },
+      "combbox_life_days": {
+        "name": "Hair collector remaining days"
+      },
+      "status_code": {
+        "name": "Operating status"
+      },
+      "error_code": {
+        "name": "Error code"
+      }
     }
   }
 }

@@ -1,85 +1,18 @@
 # Dreame FP10 Air Purifier
 
-Home Assistant custom integration for the Dreame FP10 Air Purifier.
+Home Assistant custom integration for the Dreame FP10 Pet Air Purifier (`dreame.airp.u2513`).
 
-Implemented:
+## Features
 
-- cloud login with user-provided account and password
-- automatic region detection, or manual region selection
-- device list selection during setup
-- OTC info polling
-- property polling through `dreame-user-iot/iotstatus/props`
-- raw command transport through `dreame-iot-com-<host>/device/sendCommand`
-- configurable fan, sensor, switch, select, and number mappings
+- Cloud authentication via Dreame Smart Life with automatic region detection and re-authentication support
+- Main `fan` entity with power control, real 1-10 speed percentage mapping, and purification preset modes
+- Dedicated `number` (fan speed 1-10), `select` (purification mode), and `switch` (child lock) entities
+- 13 air-quality, filter-life, and device-status sensors with native Home Assistant device classes, state classes, and units
+- Redacted diagnostics download and configurable polling interval (15-300 s)
 
-## Quick start
+## Setup
 
-1. Copy `custom_components/dreame_airpurifier` into your Home Assistant config directory.
+1. Copy `custom_components/dreame_airpurifier` into your Home Assistant `config/custom_components/` directory.
 2. Restart Home Assistant.
-3. Add the `Dreame FP10 Air Purifier` integration from the UI.
-4. Sign in with your own Dreame Smart Life account.
-5. Leave the region on `Auto detect` unless you already know the correct region.
-6. Select your device.
-
-This integration is intended for the FP10 model family, currently mapped as `dreame.airp.u2513`. If your device still needs manual tuning, adjust the mapping JSON fields in the integration options.
-
-## Mapping examples
-
-`sensor_mappings`
-
-```json
-{
-  "pm25": {
-    "key": "4.2",
-    "name": "PM2.5",
-    "unit": "ug/m3",
-    "icon": "mdi:molecule"
-  },
-  "temperature": {
-    "key": "4.8",
-    "name": "Temperature",
-    "unit": "°C",
-    "device_class": "temperature"
-  }
-}
-```
-
-`switch_mappings`
-
-```json
-{
-  "anion": {
-    "key": "4.20",
-    "name": "Anion",
-    "on": 1,
-    "off": 0,
-    "icon": "mdi:atom"
-  }
-}
-```
-
-`select_mappings`
-
-```json
-{
-  "mode": {
-    "key": "4.3",
-    "name": "Mode",
-    "options": {
-      "auto": 0,
-      "sleep": 1,
-      "strong": 2
-    }
-  }
-}
-```
-
-`fan_speed_map`
-
-```json
-{
-  "sleep": 1,
-  "auto": 2,
-  "strong": 3
-}
-```
+3. Add **Dreame FP10 Air Purifier** from **Settings -> Devices & Services -> Add Integration**.
+4. Sign in with your Dreame Smart Life account and pick your FP10 air purifier.

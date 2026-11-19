@@ -1,47 +1,47 @@
+"""Switch platform for Dreame FP10 Air Purifier."""
+
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import DreameSmartlifeCoordinator
-from .entity import DreameSmartlifeEntity
-from .utils import values_equal
-
-
-async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    coordinator: DreameSmartlifeCoordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = [
-        DreameSmartlifeMappedSwitch(coordinator, name, mapping)
-        for name, mapping in coordinator.options.switch_mappings.items()
-        if mapping.get("key")
-    ]
-    async_add_entities(entities)
+from .const import FP10_CHILD_LOCK_OFF, FP10_CHILD_LOCK_ON, PROP_CHILD_LOCK
+from .coordinator import DreameConfigEntry, DreameCoordinator
+from .entity import DreameEntity
+from .protocol import values_equal
 
 
-class DreameSmartlifeMappedSwitch(DreameSmartlifeEntity, SwitchEntity):
-    def __init__(self, coordinator: DreameSmartlifeCoordinator, name: str, mapping: dict) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: DreameConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the Dreame FP10 child lock switch entity."""
+    async_add_entities([DreameChildLockSwitch(entry.runtime_data)])
+
+
+class DreameChildLockSwitch(DreameEntity, SwitchEntity):
+    """Child lock switch."""
+
+    _attr_translation_key = "child_lock"
+    _attr_icon = "mdi:lock"
+
+    def __init__(self, coordinator: DreameCoordinator) -> None:
         super().__init__(coordinator)
-        self._mapping = mapping
-        self._key = mapping["key"]
-        self._on_value = mapping.get("on", 1)
-        self._off_value = mapping.get("off", 0)
-        self._attr_name = mapping.get("name", name.replace("_", " ").title())
-        self._attr_unique_id = f"{coordinator.device.descriptor.did}_switch_{name}"
-        self._attr_icon = mapping.get("icon")
+        self._attr_unique_id = f"{coordinator.descriptor.did}_switch_child_lock"
 
     @property
     def is_on(self) -> bool | None:
-        current = (self.coordinator.data or self.coordinator.device.state).properties.get(self._key)
+        current = self._properties.get(PROP_CHILD_LOCK)
         if current is None:
             return None
-        return values_equal(current, self._on_value)
+        return values_equal(current, FP10_CHILD_LOCK_ON)
 
-    async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.device.async_set_property(self._key, self._on_value)
-        self.coordinator.async_set_local_property(self._key, self._on_value)
-        self.coordinator.async_schedule_follow_up_refresh()
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_property(PROP_CHILD_LOCK, FP10_CHILD_LOCK_ON)
 
-    async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.device.async_set_property(self._key, self._off_value)
-        self.coordinator.async_set_local_property(self._key, self._off_value)
-        self.coordinator.async_schedule_follow_up_refresh()
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_property(PROP_CHILD_LOCK, FP10_CHILD_LOCK_OFF)

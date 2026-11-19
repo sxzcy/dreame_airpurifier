@@ -1,112 +1,122 @@
+"""DataUpdateCoordinator for Dreame FP10 Air Purifier."""
+
 from __future__ import annotations
 
 import asyncio
-from dataclasses import asdict
+from collections.abc import Awaitable
+from datetime import timedelta
 import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import (
-    CONF_REGION,
-    DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
-    MIN_SCAN_INTERVAL,
-    STORAGE_KEY_PREFIX,
-    STORAGE_VERSION,
-)
-from .dreame.device import DreameSmartlifeDevice, DreameSmartlifeState
-from .dreame.exceptions import DreameSmartlifeAuthError, DreameSmartlifeError
-from .dreame.models import descriptor_from_entry, load_options
-from .dreame.protocol import DreameSmartlifeClient
+from . import const as C
+from .client import DreameClient
+from .protocol import DreameAuthError, DreameDeviceDescriptor, DreameError, DreameState, parse_key
 
 _LOGGER = logging.getLogger(__name__)
 
+type DreameConfigEntry = ConfigEntry[DreameCoordinator]
 
-class DreameSmartlifeCoordinator(DataUpdateCoordinator[DreameSmartlifeState]):
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        self.entry = entry
-        self.options = load_options(entry.data, entry.options)
-        self._follow_up_refresh_task: asyncio.Task | None = None
-        client = DreameSmartlifeClient(
-            async_get_clientsession(hass),
-            entry.data[CONF_USERNAME],
-            entry.data[CONF_PASSWORD],
-            entry.data[CONF_REGION],
+
+class DreameCoordinator(DataUpdateCoordinator[DreameState]):
+    """Coordinate Dreame FP10 cloud polling and write commands."""
+
+    config_entry: DreameConfigEntry
+
+    def __init__(self, hass: HomeAssistant, entry: DreameConfigEntry) -> None:
+        self.descriptor = DreameDeviceDescriptor(
+            did=str(entry.data[C.CONF_DID]),
+            name=str(entry.data.get(C.CONF_DEVICE_NAME) or C.DEFAULT_NAME),
+            model=str(entry.data.get(C.CONF_DEVICE_MODEL) or C.FP10_MODEL),
+            bind_domain=str(entry.data.get(C.CONF_BIND_DOMAIN) or ""),
+            mac=entry.data.get(C.CONF_MAC),
         )
-        self.device = DreameSmartlifeDevice(client, descriptor_from_entry(entry.data))
-        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY_PREFIX}{entry.entry_id}")
+        self.client = DreameClient(
+            async_get_clientsession(hass),
+            str(entry.data[CONF_USERNAME]),
+            str(entry.data[CONF_PASSWORD]),
+            str(entry.data.get(C.CONF_REGION) or C.DEFAULT_REGION),
+        )
+        self._follow_up_task: asyncio.Task[None] | None = None
+        interval = C.clamp_scan_interval(entry.options.get(C.CONF_SCAN_INTERVAL, C.DEFAULT_SCAN_INTERVAL))
         super().__init__(
             hass,
             _LOGGER,
-            name=f"{DOMAIN}_{self.device.descriptor.did}",
-            update_interval=self._build_interval(),
+            config_entry=entry,
+            name=f"{C.DOMAIN}_{self.descriptor.did}",
+            update_interval=timedelta(seconds=interval),
         )
 
-    def _build_interval(self):
-        from datetime import timedelta
-
-        return timedelta(seconds=max(self.options.scan_interval, MIN_SCAN_INTERVAL))
-
-    async def _async_update_data(self) -> DreameSmartlifeState:
+    async def _async_update_data(self) -> DreameState:
         try:
-            return await self.device.async_refresh(self.options.polled_keys)
-        except DreameSmartlifeAuthError as err:
+            otc_info = await self.client.async_get_otc_info(self.descriptor.did)
+            properties = await self.client.async_get_props(self.descriptor.did, C.FP10_POLLED_KEYS)
+        except DreameAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
-        except DreameSmartlifeError as err:
+        except DreameError as err:
             raise UpdateFailed(str(err)) from err
+        return DreameState(descriptor=self.descriptor, properties=properties, otc_info=otc_info)
 
-    async def async_reload_options(self) -> None:
-        self.options = load_options(self.entry.data, self.entry.options)
-        self.update_interval = self._build_interval()
-        await self.async_request_refresh()
+    async def _async_write(
+        self,
+        awaitable: Awaitable[None],
+        *,
+        optimistic_property: tuple[str, Any] | None = None,
+        schedule_refresh: bool = True,
+    ) -> None:
+        try:
+            await awaitable
+        except DreameAuthError as err:
+            self.config_entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(f"Authentication failed: {err}") from err
+        except DreameError as err:
+            raise HomeAssistantError(str(err)) from err
 
-    async def async_initialize(self) -> None:
-        cached = await self._store.async_load()
-        if not isinstance(cached, dict):
-            return
-        discovered = cached.get("discovered_properties", {})
-        if isinstance(discovered, dict):
-            self.device.state.discovered_properties = discovered
-        last_probe_at = cached.get("last_probe_at")
-        if last_probe_at:
-            from homeassistant.util import dt as dt_util
+        if optimistic_property is not None:
+            current = self.data or DreameState(descriptor=self.descriptor)
+            self.async_set_updated_data(current.with_property(*optimistic_property))
+        if schedule_refresh:
+            self.async_schedule_follow_up_refresh()
 
-            self.device.state.last_probe_at = dt_util.parse_datetime(last_probe_at)
-
-    async def async_probe_properties(self) -> DreameSmartlifeState:
-        state = await self.device.async_probe_properties(self.options.probe_max_siid, self.options.probe_max_piid)
-        await self._store.async_save(
-            {
-                "discovered_properties": state.discovered_properties,
-                "last_probe_at": state.last_probe_at.isoformat() if state.last_probe_at else None,
-            }
+    async def async_set_property(
+        self, key: str, value: Any, *, schedule_refresh: bool = True
+    ) -> None:
+        siid, piid = parse_key(key)
+        await self._async_write(
+            self.client.async_set_property(
+                self.descriptor.bind_domain, self.descriptor.did, siid, piid, value
+            ),
+            optimistic_property=(key, value),
+            schedule_refresh=schedule_refresh,
         )
-        self.async_set_updated_data(state)
-        return self.data
 
-    async def async_send_raw_command(self, method: str, params: Any) -> Any:
-        return await self.device.async_send_raw_command(method, params)
+    async def async_send_action(
+        self,
+        siid: int,
+        aiid: int,
+        inputs: list[dict[str, Any]] | None = None,
+        *,
+        optimistic_property: tuple[str, Any] | None = None,
+        schedule_refresh: bool = True,
+    ) -> None:
+        await self._async_write(
+            self.client.async_action(
+                self.descriptor.bind_domain, self.descriptor.did, siid, aiid, inputs
+            ),
+            optimistic_property=optimistic_property,
+            schedule_refresh=schedule_refresh,
+        )
 
-    def async_publish_state(self) -> None:
-        self.async_set_updated_data(self.device.state)
-
-    def async_set_local_property(self, key: str | None, value: Any) -> None:
-        if not key:
-            return
-        self.device.state.properties[key] = value
-        self.async_publish_state()
-
-    def async_schedule_follow_up_refresh(self, delays: tuple[float, ...] = (2.0, 4.0, 8.0)) -> None:
-        if self._follow_up_refresh_task and not self._follow_up_refresh_task.done():
-            self._follow_up_refresh_task.cancel()
-        self._follow_up_refresh_task = self.hass.async_create_task(self._async_follow_up_refresh(delays))
+    def async_schedule_follow_up_refresh(self, delays: tuple[float, ...] = (2.0, 5.0)) -> None:
+        if self._follow_up_task and not self._follow_up_task.done():
+            self._follow_up_task.cancel()
+        self._follow_up_task = self.hass.async_create_task(self._async_follow_up_refresh(delays))
 
     async def _async_follow_up_refresh(self, delays: tuple[float, ...]) -> None:
         try:
@@ -116,24 +126,13 @@ class DreameSmartlifeCoordinator(DataUpdateCoordinator[DreameSmartlifeState]):
         except asyncio.CancelledError:
             raise
         except Exception:
-            _LOGGER.debug("Delayed Dreame Smart Life refresh failed", exc_info=True)
+            _LOGGER.debug("Follow-up Dreame refresh failed", exc_info=True)
 
     async def async_shutdown(self) -> None:
-        if self._follow_up_refresh_task and not self._follow_up_refresh_task.done():
-            self._follow_up_refresh_task.cancel()
+        if self._follow_up_task and not self._follow_up_task.done():
+            self._follow_up_task.cancel()
             try:
-                await self._follow_up_refresh_task
+                await self._follow_up_task
             except asyncio.CancelledError:
                 pass
-        self._follow_up_refresh_task = None
-
-    @property
-    def diagnostics(self) -> dict[str, Any]:
-        state = self.data or self.device.state
-        return {
-            "device": asdict(state.descriptor),
-            "otc_info": state.otc_info,
-            "properties": state.properties,
-            "discovered_properties": state.discovered_properties,
-            "last_probe_at": state.last_probe_at.isoformat() if state.last_probe_at else None,
-        }
+        self._follow_up_task = None

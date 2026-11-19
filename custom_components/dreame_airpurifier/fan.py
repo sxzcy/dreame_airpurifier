@@ -1,111 +1,124 @@
+"""Fan platform for Dreame FP10 Air Purifier."""
+
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util.percentage import (
+    int_states_in_range,
+    percentage_to_ranged_value,
+    ranged_value_to_percentage,
+)
 
-from .const import DOMAIN
-from .coordinator import DreameSmartlifeCoordinator
-from .entity import DreameSmartlifeEntity
-from .utils import values_equal
+from . import const as C
+from .coordinator import DreameConfigEntry, DreameCoordinator
+from .entity import DreameEntity
+from .protocol import values_equal
 
 
-async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    coordinator: DreameSmartlifeCoordinator = hass.data[DOMAIN][entry.entry_id]
-    if coordinator.options.fan_mapping.power_key or coordinator.options.fan_mapping.power_action_siid:
-        async_add_entities([DreameSmartlifeFanEntity(coordinator)])
+async def async_setup_entry(
+    hass: HomeAssistant, entry: DreameConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    async_add_entities([DreameFanEntity(entry.runtime_data)])
 
 
-class DreameSmartlifeFanEntity(DreameSmartlifeEntity, FanEntity):
-    def __init__(self, coordinator: DreameSmartlifeCoordinator) -> None:
+class DreameFanEntity(DreameEntity, FanEntity):
+    """Main air purifier fan entity with speed percentage and preset modes."""
+
+    _attr_name = None
+    _attr_supported_features = (
+        FanEntityFeature.TURN_ON
+        | FanEntityFeature.TURN_OFF
+        | FanEntityFeature.SET_SPEED
+        | FanEntityFeature.PRESET_MODE
+    )
+    _attr_preset_modes = list(C.FAN_PRESET_MODES)
+    _attr_speed_count = int_states_in_range(C.FP10_SPEED_RANGE)
+
+    def __init__(self, coordinator: DreameCoordinator) -> None:
         super().__init__(coordinator)
-        self._mapping = coordinator.options.fan_mapping
-        self._attr_name = self._mapping.entity_name
-        self._attr_unique_id = f"{coordinator.device.descriptor.did}_fan"
-        self._attr_preset_modes = list(self._mapping.speed_map.keys()) or None
-        self._attr_percentage_step = 100
-
-    @property
-    def supported_features(self) -> FanEntityFeature:
-        features = FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
-        if self._mapping.speed_key and self._mapping.speed_map:
-            features |= FanEntityFeature.PRESET_MODE
-        return features
+        self._attr_unique_id = f"{coordinator.descriptor.did}_fan"
 
     @property
     def is_on(self) -> bool | None:
-        state = self.coordinator.data or self.coordinator.device.state
-        if self._mapping.status_key:
-            current = state.properties.get(self._mapping.status_key)
-            if current is None:
-                return None
-            return values_equal(current, self._mapping.status_on_value)
-        current = state.properties.get(self._mapping.power_key or "")
-        if current is None:
-            return None
-        return not values_equal(current, self._mapping.power_off_value)
-
-    @property
-    def preset_mode(self) -> str | None:
-        if not self._mapping.speed_key or not self._mapping.speed_map:
-            return None
-        current = (self.coordinator.data or self.coordinator.device.state).properties.get(self._mapping.speed_key)
-        for label, raw in self._mapping.speed_map.items():
-            if values_equal(current, raw):
-                return label
-        return None
+        raw = self._properties.get(C.PROP_STATUS)
+        return None if raw is None else values_equal(raw, C.FP10_STATUS_ON)
 
     @property
     def percentage(self) -> int | None:
-        if self.is_on is False:
+        if self.is_on is None:
+            return None
+        if not self.is_on:
             return 0
-        return 100
+        raw = self._properties.get(C.PROP_FAN_SPEED)
+        if raw is None or isinstance(raw, bool):
+            return None
+        try:
+            speed = int(float(raw))
+        except (TypeError, ValueError):
+            return None
+        if speed < C.FP10_SPEED_MIN:
+            return None
+        return ranged_value_to_percentage(C.FP10_SPEED_RANGE, min(speed, C.FP10_SPEED_MAX))
 
-    async def async_turn_on(self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
+    @property
+    def preset_mode(self) -> str | None:
+        current = self._properties.get(C.PROP_WIND_MODE)
+        return next((k for k, v in C.FAN_PRESET_MODES.items() if values_equal(current, v)), None)
+
+    @staticmethod
+    def _speed_from_percentage(percentage: int) -> int:
+        raw = math.ceil(percentage_to_ranged_value(C.FP10_SPEED_RANGE, percentage))
+        return max(C.FP10_SPEED_MIN, min(C.FP10_SPEED_MAX, raw))
+
+    async def _async_power(self, on: bool, *, schedule_refresh: bool = True) -> None:
+        await self.coordinator.async_send_action(
+            C.FP10_POWER_ACTION_SIID,
+            C.FP10_POWER_ACTION_AIID,
+            [{"piid": C.FP10_POWER_ACTION_PIID, "value": C.FP10_POWER_ON_VALUE if on else C.FP10_POWER_OFF_VALUE}],
+            optimistic_property=(C.PROP_STATUS, C.FP10_STATUS_ON if on else C.FP10_STATUS_OFF),
+            schedule_refresh=schedule_refresh,
+        )
+
+    async def async_turn_on(
+        self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any
+    ) -> None:
         if percentage is not None and percentage <= 0:
             await self.async_turn_off()
             return
-        if self._mapping.power_action_siid and self._mapping.power_action_aiid and self._mapping.power_action_piid:
-            await self.coordinator.device.async_action(
-                self._mapping.power_action_siid,
-                self._mapping.power_action_aiid,
-                [{"piid": self._mapping.power_action_piid, "value": self._mapping.power_on_value}],
+        if preset_mode is not None and preset_mode not in C.FAN_PRESET_MODES:
+            raise ValueError(f"Unsupported preset mode: {preset_mode}")
+        has_followup = preset_mode is not None or percentage is not None
+        await self._async_power(True, schedule_refresh=not has_followup)
+        if preset_mode is not None:
+            await self.coordinator.async_set_property(
+                C.PROP_WIND_MODE, C.FAN_PRESET_MODES[preset_mode], schedule_refresh=percentage is None
             )
-            self.coordinator.async_set_local_property(self._mapping.status_key, self._mapping.status_on_value)
-        elif self._mapping.power_key:
-            await self.coordinator.device.async_set_property(self._mapping.power_key, self._mapping.power_on_value)
-            self.coordinator.async_set_local_property(self._mapping.power_key, self._mapping.power_on_value)
-        if preset_mode:
-            await self.async_set_preset_mode(preset_mode)
-        self.coordinator.async_schedule_follow_up_refresh()
+        if percentage is not None:
+            await self.coordinator.async_set_property(
+                C.PROP_FAN_SPEED, self._speed_from_percentage(percentage)
+            )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        if self._mapping.power_action_siid and self._mapping.power_action_aiid and self._mapping.power_action_piid:
-            await self.coordinator.device.async_action(
-                self._mapping.power_action_siid,
-                self._mapping.power_action_aiid,
-                [{"piid": self._mapping.power_action_piid, "value": self._mapping.power_off_value}],
-            )
-            self.coordinator.async_set_local_property(self._mapping.status_key, self._mapping.status_off_value)
-        elif self._mapping.power_key:
-            await self.coordinator.device.async_set_property(self._mapping.power_key, self._mapping.power_off_value)
-            self.coordinator.async_set_local_property(self._mapping.power_key, self._mapping.power_off_value)
-        self.coordinator.async_schedule_follow_up_refresh()
+        await self._async_power(False)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        if not self._mapping.speed_key:
-            return
-        if preset_mode not in self._mapping.speed_map:
+        if preset_mode not in C.FAN_PRESET_MODES:
             raise ValueError(f"Unsupported preset mode: {preset_mode}")
-        if self.is_on is False:
-            await self.async_turn_on()
-        value = self._mapping.speed_map[preset_mode]
-        await self.coordinator.device.async_set_property(self._mapping.speed_key, value)
-        self.coordinator.async_set_local_property(self._mapping.speed_key, value)
-        self.coordinator.async_schedule_follow_up_refresh()
+        if self.is_on is not True:
+            await self._async_power(True, schedule_refresh=False)
+        await self.coordinator.async_set_property(C.PROP_WIND_MODE, C.FAN_PRESET_MODES[preset_mode])
 
     async def async_set_percentage(self, percentage: int) -> None:
         if percentage <= 0:
             await self.async_turn_off()
             return
-        await self.async_turn_on()
+        if self.is_on is not True:
+            await self._async_power(True, schedule_refresh=False)
+        await self.coordinator.async_set_property(
+            C.PROP_FAN_SPEED, self._speed_from_percentage(percentage)
+        )
