@@ -9,6 +9,8 @@ from .const import CONF_REGION, REGION_AUTO
 from .coordinator import DreameConfigEntry, DreameCoordinator
 
 PLATFORMS: tuple[Platform, ...] = (
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
     Platform.FAN,
     Platform.NUMBER,
     Platform.SELECT,
@@ -27,6 +29,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DreameConfigEntry) -> bo
         )
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    coordinator.async_start_push()
     return True
 
 

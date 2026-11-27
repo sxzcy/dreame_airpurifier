@@ -32,6 +32,8 @@ async def async_get_config_entry_diagnostics(
         "entry": {"title": entry.title, "data": dict(entry.data), "options": dict(entry.options)},
         "device": asdict(coordinator.descriptor),
         "region": coordinator.client.region,
+        "fw_version": coordinator.fw_version,
+        "mqtt_connected": coordinator.mqtt_connected,
         "otc_info": dict(state.otc_info) if state else {},
         "properties": dict(state.properties) if state else {},
     }

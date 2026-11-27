@@ -1,14 +1,16 @@
 # Dreame FP10 Air Purifier
 
-Home Assistant custom integration for the Dreame FP10 Pet Air Purifier (`dreame.airp.u2513`).
+Home Assistant custom integration (`cloud_push`) for the Dreame FP10 Pet Air Purifier (`dreame.airp.u2513`).
 
 ## Features
 
-- Cloud authentication via Dreame Smart Life with automatic region detection and re-authentication support
-- Main `fan` entity with power control, real 1-10 speed percentage mapping, and purification preset modes
-- Dedicated `number` (fan speed 1-10), `select` (purification mode), and `switch` (child lock) entities
-- 13 air-quality, filter-life, and device-status sensors with native Home Assistant device classes, state classes, and units
-- Redacted diagnostics download and configurable polling interval (15-300 s)
+- Cloud authentication via Dreame Smart Life with automatic region detection, `refresh_token` renewal, and re-authentication flow
+- Real-time Dreame Cloud MQTT push (`aiomqtt` over TLS) with automatic HTTP fallback polling (300 s connected / 15–300 s disconnected)
+- Automatic dual-firmware adaptation (`1.9.3_1072+` and legacy `1.8.x` fallback) with firmware version exposed on the device registry
+- Main `fan` entity with power control, real 1–10 speed percentage mapping, and purification preset modes
+- Dedicated controls: fan speed & auto-off timer (`number`), purification mode / ambient light brightness / color temperature (`select`), child lock / ambient breathing / key sound (`switch`), self-cleaning & filter reset (`button`)
+- 17 sensors (PM2.5, PM10, TVOC, AQ, air quality level, display value, current speed, temperature, humidity, self-cleaning status, HEPA & hair collector life/days, operating status, error code, Wi-Fi RSSI) + cloud push connectivity `binary_sensor`
+- Redacted diagnostics download and zero-drift upgrade from v1.0.0
 
 ## Setup
 

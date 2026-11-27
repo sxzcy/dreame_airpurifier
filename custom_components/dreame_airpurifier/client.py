@@ -36,6 +36,7 @@ class DreameClient:
         self._tenant_id = C.DEFAULT_TENANT_ID
         self._auth_token: str | None = None
         self._refresh_token: str | None = None
+        self._expires_at: float = 0.0
         self._uid: str | None = None
         self._login_lock = asyncio.Lock()
         self._otc_refresh_interval = otc_refresh_interval
@@ -50,17 +51,38 @@ class DreameClient:
         return self._uid
 
     @property
+    def auth_token(self) -> str | None:
+        return self._auth_token
+
+    @property
     def base_url(self) -> str:
         return P.build_base_url(self._region)
 
-    async def _async_login_region(self, region: str, *, timeout: ClientTimeout) -> dict[str, Any]:
+    def _apply_token_response(self, data: dict[str, Any], fallback_region: str) -> None:
+        self._auth_token = str(data["access_token"])
+        self._refresh_token = data.get("refresh_token") or self._refresh_token
+        self._tenant_id = str(data.get("tenant_id", self._tenant_id))
+        uid = str(data.get("uid", ""))
+        if uid:
+            self._uid = uid
+        resolved = str(data.get("region", fallback_region)).lower()
+        self._region = self._resolved_region = resolved
+        try:
+            expires_in = float(data.get("expires_in", 7200))
+        except (TypeError, ValueError):
+            expires_in = 7200.0
+        self._expires_at = monotonic() + max(60.0, expires_in)
+
+    async def _async_token_request(
+        self, region: str, payload: dict[str, str], *, timeout: ClientTimeout
+    ) -> dict[str, Any]:
         url = f"{P.build_base_url(region)}{C.TOKEN_PATH}"
         try:
             async with asyncio.timeout(timeout.total):
                 async with self._session.post(
                     url,
                     headers=P.build_token_headers(self._tenant_id),
-                    data=P.build_login_payload(self._username, self._password),
+                    data=payload,
                     timeout=timeout,
                 ) as response:
                     response.raise_for_status()
@@ -78,7 +100,20 @@ class DreameClient:
             raise P.DreameAuthError(f"Unexpected login response: {msg}")
         return data
 
-    async def _async_login_locked(self) -> dict[str, Any]:
+    async def _async_login_locked(self, *, try_refresh: bool = False) -> dict[str, Any]:
+        if try_refresh and self._refresh_token and self._resolved_region is not None:
+            try:
+                data = await self._async_token_request(
+                    self._resolved_region,
+                    P.build_refresh_payload(self._refresh_token),
+                    timeout=ClientTimeout(total=C.DEFAULT_REQUEST_TIMEOUT),
+                )
+                self._apply_token_response(data, self._resolved_region)
+                _LOGGER.debug("Refreshed Dreame cloud token for region %s", self._region)
+                return data
+            except P.DreameError:
+                self._refresh_token = None
+
         is_auto = self._resolved_region is None
         regions = C.KNOWN_REGIONS if is_auto else (self._resolved_region,)
         timeout = (
@@ -91,11 +126,16 @@ class DreameClient:
 
         for region in regions:
             try:
-                data = await self._async_login_region(region, timeout=timeout)
+                data = await self._async_token_request(
+                    region,
+                    P.build_login_payload(self._username, self._password),
+                    timeout=timeout,
+                )
             except P.DreameAuthError as err:
                 last_auth_err = err
                 if not is_auto:
                     self._auth_token = None
+                    self._expires_at = 0.0
                     raise
                 continue
             except P.DreameError as err:
@@ -104,16 +144,12 @@ class DreameClient:
                     raise
                 continue
 
-            self._auth_token = str(data["access_token"])
-            self._refresh_token = data.get("refresh_token")
-            self._tenant_id = str(data.get("tenant_id", self._tenant_id))
-            self._uid = str(data.get("uid", "")) or None
-            resolved = str(data.get("region", region)).lower()
-            self._region = self._resolved_region = resolved
-            _LOGGER.debug("Logged in to Dreame cloud region %s", resolved)
+            self._apply_token_response(data, region)
+            _LOGGER.debug("Logged in to Dreame cloud region %s", self._region)
             return data
 
         self._auth_token = None
+        self._expires_at = 0.0
         if last_api_err is not None:
             raise last_api_err
         if last_auth_err is not None:
@@ -122,12 +158,25 @@ class DreameClient:
 
     async def async_login(self) -> dict[str, Any]:
         async with self._login_lock:
-            return await self._async_login_locked()
+            return await self._async_login_locked(try_refresh=False)
+
+    async def async_ensure_auth(self, *, force_refresh: bool = False) -> tuple[str, str]:
+        """Ensure a valid (uid, access_token) pair for HTTP/MQTT use."""
+        async with self._login_lock:
+            now = monotonic()
+            expired = not self._auth_token or not self._uid or (
+                self._expires_at > 0 and now >= self._expires_at - C.TOKEN_REFRESH_MARGIN
+            )
+            if force_refresh or expired:
+                await self._async_login_locked(try_refresh=bool(self._refresh_token))
+            if not self._auth_token or not self._uid:
+                raise P.DreameAuthError("Missing uid or access_token after Dreame login")
+            return self._uid, self._auth_token
 
     async def _async_relogin_if_needed(self, used_token: str | None) -> None:
         async with self._login_lock:
             if not self._auth_token or self._auth_token == used_token:
-                await self._async_login_locked()
+                await self._async_login_locked(try_refresh=bool(used_token and self._refresh_token))
 
     async def _async_post_json(
         self, path: str, payload: dict[str, Any], *, retry: bool = True
@@ -170,6 +219,11 @@ class DreameClient:
     async def async_list_devices(self) -> list[dict[str, Any]]:
         return P.parse_device_list_response(
             await self._async_post_json(C.DEVICE_LIST_PATH, {"page": 1, "size": 100})
+        )
+
+    async def async_get_device_info(self, did: str) -> dict[str, Any]:
+        return P.parse_device_info_response(
+            await self._async_post_json(C.DEVICE_INFO_PATH, {"did": did})
         )
 
     async def async_get_props(self, did: str, keys: Sequence[str]) -> dict[str, Any]:

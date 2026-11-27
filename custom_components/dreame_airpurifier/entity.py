@@ -19,15 +19,22 @@ class DreameEntity(CoordinatorEntity[DreameCoordinator]):
 
     def __init__(self, coordinator: DreameCoordinator) -> None:
         super().__init__(coordinator)
-        descriptor = coordinator.descriptor
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, descriptor.did)},
-            name=descriptor.name,
-            manufacturer="Dreame",
-            model=descriptor.model,
-        )
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return dynamic device registry metadata including firmware version."""
+        descriptor = self.coordinator.descriptor
+        info_kwargs: dict[str, Any] = {
+            "identifiers": {(DOMAIN, descriptor.did)},
+            "name": descriptor.name,
+            "manufacturer": "Dreame",
+            "model": descriptor.model,
+        }
+        if self.coordinator.fw_version:
+            info_kwargs["sw_version"] = str(self.coordinator.fw_version)
+        return DeviceInfo(**info_kwargs)
 
     @property
     def _properties(self) -> Mapping[str, Any]:
-        """Return the latest polled MIOT property snapshot."""
+        """Return the latest MIOT property snapshot."""
         return self.coordinator.data.properties if self.coordinator.data else {}

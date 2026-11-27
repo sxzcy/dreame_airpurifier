@@ -3,10 +3,12 @@
   "name": "Dreame FP10 Air Purifier",
   "codeowners": [],
   "config_flow": true,
-  "iot_class": "cloud_polling",
+  "iot_class": "cloud_push",
   "loggers": [
     "custom_components.dreame_airpurifier"
   ],
-  "requirements": [],
-  "version": "1.0.0"
+  "requirements": [
+    "aiomqtt>=2.0.0"
+  ],
+  "version": "2.0.0"
 }

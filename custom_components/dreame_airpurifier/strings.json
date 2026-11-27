@@ -42,27 +42,72 @@
     "step": {
       "init": {
         "title": "Dreame FP10 Air Purifier Options",
-        "description": "Configure cloud polling frequency.",
+        "description": "Configure fallback cloud polling interval (automatically relaxes to 300 s while MQTT push is connected).",
         "data": {
-          "scan_interval": "Scan interval (seconds)"
+          "scan_interval": "Fallback scan interval (seconds)"
         }
       }
     }
   },
   "entity": {
+    "binary_sensor": {
+      "cloud_push": {
+        "name": "Cloud push"
+      }
+    },
+    "button": {
+      "start_self_cleaning": {
+        "name": "Start self-cleaning"
+      },
+      "confirm_self_cleaning": {
+        "name": "Confirm self-cleaning complete"
+      },
+      "reset_hepa_filter": {
+        "name": "Reset HEPA filter life"
+      },
+      "reset_combbox": {
+        "name": "Reset hair collector life"
+      }
+    },
     "number": {
       "fan_speed": {
         "name": "Fan speed"
+      },
+      "timer_hours": {
+        "name": "Auto-off timer"
       }
     },
     "select": {
       "wind_mode": {
         "name": "Purification mode"
+      },
+      "light_brightness": {
+        "name": "Ambient light brightness",
+        "state": {
+          "off": "Off",
+          "dim": "Dim",
+          "natural": "Natural",
+          "bright": "Bright"
+        }
+      },
+      "color_temperature": {
+        "name": "Ambient light color temperature",
+        "state": {
+          "warm": "Warm (2700K)",
+          "neutral": "Neutral (4000K)",
+          "cool": "Cool (5700K)"
+        }
       }
     },
     "switch": {
       "child_lock": {
         "name": "Child lock"
+      },
+      "ambient_breathing": {
+        "name": "Ambient light breathing"
+      },
+      "key_sound": {
+        "name": "Key sound"
       }
     },
     "sensor": {
@@ -87,6 +132,21 @@
       "current_speed": {
         "name": "Current speed"
       },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "self_cleaning_status": {
+        "name": "Self-cleaning status",
+        "state": {
+          "idle": "Idle",
+          "running": "Running",
+          "complete": "Complete",
+          "error": "Error"
+        }
+      },
       "hepa_filter_life": {
         "name": "HEPA filter life"
       },
@@ -104,6 +164,9 @@
       },
       "error_code": {
         "name": "Error code"
+      },
+      "wifi_rssi": {
+        "name": "Wi-Fi signal"
       }
     }
   }

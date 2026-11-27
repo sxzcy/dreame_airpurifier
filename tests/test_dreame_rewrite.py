@@ -127,6 +127,7 @@ def _install_stubs() -> None:
     const_mod = types.ModuleType("homeassistant.const")
 
     class Platform:
+        BINARY_SENSOR = "binary_sensor"
         BUTTON = "button"
         FAN = "fan"
         NUMBER = "number"
@@ -141,6 +142,9 @@ def _install_stubs() -> None:
     class UnitOfDensity:
         MICROGRAMS_PER_CUBIC_METER = "µg/m³"
 
+    class UnitOfTemperature:
+        CELSIUS = "°C"
+
     class UnitOfTime:
         DAYS = "d"
         HOURS = "h"
@@ -149,8 +153,10 @@ def _install_stubs() -> None:
     const_mod.Platform = Platform
     const_mod.EntityCategory = EntityCategory
     const_mod.UnitOfDensity = UnitOfDensity
+    const_mod.UnitOfTemperature = UnitOfTemperature
     const_mod.UnitOfTime = UnitOfTime
     const_mod.PERCENTAGE = "%"
+    const_mod.SIGNAL_STRENGTH_DECIBELS_MILLIWATT = "dBm"
     const_mod.CONF_USERNAME = "username"
     const_mod.CONF_PASSWORD = "password"
     sys.modules["homeassistant.const"] = const_mod
@@ -460,12 +466,47 @@ def _install_stubs() -> None:
     sw_mod.SwitchEntity = SwitchEntity
     sys.modules["homeassistant.components.switch"] = sw_mod
 
+    # binary_sensor
+    bs_mod = types.ModuleType("homeassistant.components.binary_sensor")
+
+    class BinarySensorDeviceClass:
+        CONNECTIVITY = "connectivity"
+
+    class BinarySensorEntity:
+        pass
+
+    bs_mod.BinarySensorDeviceClass = BinarySensorDeviceClass
+    bs_mod.BinarySensorEntity = BinarySensorEntity
+    sys.modules["homeassistant.components.binary_sensor"] = bs_mod
+
+    # button
+    btn_mod = types.ModuleType("homeassistant.components.button")
+
+    @dataclass(frozen=True, kw_only=True)
+    class ButtonEntityDescription:
+        key: str
+        translation_key: str | None = None
+        entity_category: Any = None
+        entity_registry_enabled_default: bool = True
+        icon: str | None = None
+
+    class ButtonEntity:
+        pass
+
+    btn_mod.ButtonEntityDescription = ButtonEntityDescription
+    btn_mod.ButtonEntity = ButtonEntity
+    sys.modules["homeassistant.components.button"] = btn_mod
+
     # sensor
     sen_mod = types.ModuleType("homeassistant.components.sensor")
 
     class SensorDeviceClass:
         PM25 = "pm25"
         PM10 = "pm10"
+        TEMPERATURE = "temperature"
+        HUMIDITY = "humidity"
+        ENUM = "enum"
+        SIGNAL_STRENGTH = "signal_strength"
 
     class SensorStateClass:
         MEASUREMENT = "measurement"
@@ -478,6 +519,8 @@ def _install_stubs() -> None:
         native_unit_of_measurement: Any = None
         state_class: Any = None
         entity_category: Any = None
+        entity_registry_enabled_default: bool = True
+        options: list[str] | None = None
         icon: str | None = None
 
     class SensorEntity:
@@ -493,6 +536,7 @@ def _install_stubs() -> None:
 _install_stubs()
 
 import aiohttp  # noqa: E402
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass  # noqa: E402
 from homeassistant.components.fan import FanEntityFeature  # noqa: E402
 from homeassistant.components.number import NumberMode  # noqa: E402
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass  # noqa: E402
@@ -501,9 +545,11 @@ from homeassistant.const import (  # noqa: E402
     CONF_PASSWORD,
     CONF_USERNAME,
     PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     EntityCategory,
     Platform,
     UnitOfDensity,
+    UnitOfTemperature,
     UnitOfTime,
 )
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError  # noqa: E402
@@ -512,7 +558,15 @@ from homeassistant.helpers.update_coordinator import UpdateFailed  # noqa: E402
 
 import custom_components.dreame_airpurifier as dreame_init  # noqa: E402
 from custom_components.dreame_airpurifier import const as C  # noqa: E402
+from custom_components.dreame_airpurifier import mqtt as M  # noqa: E402
 from custom_components.dreame_airpurifier import protocol as P  # noqa: E402
+from custom_components.dreame_airpurifier.binary_sensor import (  # noqa: E402
+    DreameCloudPushBinarySensor,
+)
+from custom_components.dreame_airpurifier.button import (  # noqa: E402
+    BUTTON_DESCRIPTIONS,
+    DreameActionButton,
+)
 from custom_components.dreame_airpurifier.client import DreameClient  # noqa: E402
 from custom_components.dreame_airpurifier.config_flow import (  # noqa: E402
     DreameConfigFlow,
@@ -521,13 +575,24 @@ from custom_components.dreame_airpurifier.config_flow import (  # noqa: E402
 from custom_components.dreame_airpurifier.coordinator import DreameCoordinator  # noqa: E402
 from custom_components.dreame_airpurifier.diagnostics import async_get_config_entry_diagnostics  # noqa: E402
 from custom_components.dreame_airpurifier.fan import DreameFanEntity  # noqa: E402
-from custom_components.dreame_airpurifier.number import DreameFanSpeedNumber  # noqa: E402
-from custom_components.dreame_airpurifier.select import DreameWindModeSelect  # noqa: E402
+from custom_components.dreame_airpurifier.number import (  # noqa: E402
+    DreameFanSpeedNumber,
+    DreameTimerHoursNumber,
+)
+from custom_components.dreame_airpurifier.select import (  # noqa: E402
+    DreameColorTemperatureSelect,
+    DreameLightBrightnessSelect,
+    DreameWindModeSelect,
+)
 from custom_components.dreame_airpurifier.sensor import (  # noqa: E402
     SENSOR_DESCRIPTIONS,
     DreameSensorEntity,
 )
-from custom_components.dreame_airpurifier.switch import DreameChildLockSwitch  # noqa: E402
+from custom_components.dreame_airpurifier.switch import (  # noqa: E402
+    DreameAmbientBreathingSwitch,
+    DreameChildLockSwitch,
+    DreameKeySoundSwitch,
+)
 
 
 class _FakeResponse:
@@ -606,13 +671,16 @@ class TestArchitectureAndProtocol(unittest.TestCase):
         self.assertNotIn("homeassistant", client_roots)
         self.assertIn("aiohttp", client_roots)
 
+        mqtt_roots = imported_roots(COMPONENT_DIR / "mqtt.py")
+        self.assertNotIn("homeassistant", mqtt_roots)
+
         forbidden_io = {"urllib", "requests", "socket", "threading"}
         for py_file in COMPONENT_DIR.rglob("*.py"):
             roots = imported_roots(py_file)
             self.assertFalse(roots & forbidden_io, f"Blocking I/O import in {py_file.name}: {roots & forbidden_io}")
 
-        # Verify bloated legacy files and scaffolding were removed
-        for removed in ("button.py", "utils.py", "services.yaml", "CODEX_DONE.md", "dreame"):
+        # Verify bloated legacy files and scaffolding remain removed
+        for removed in ("utils.py", "services.yaml", "CODEX_DONE.md", "dreame"):
             self.assertFalse((COMPONENT_DIR / removed).exists(), f"{removed} should be removed")
 
         # Verify offline probe tool remains intact
@@ -732,6 +800,72 @@ class TestArchitectureAndProtocol(unittest.TestCase):
         next_state = state.with_property("2.4", 6)
         self.assertNotIn("2.4", state.properties)
         self.assertEqual(next_state.properties["2.4"], 6)
+
+    def test_mqtt_protocol_and_dual_firmware_helpers(self) -> None:
+        self.assertEqual(
+            P.parse_bind_domain("10000.mt.cn.iot.dreame.tech:19973", "cn"),
+            ("10000.mt.cn.iot.dreame.tech", 19973),
+        )
+        self.assertEqual(
+            P.parse_bind_domain("10000.mt.eu.iot.dreame.tech", "eu"),
+            ("10000.mt.eu.iot.dreame.tech", 19973),
+        )
+        self.assertEqual(
+            P.parse_bind_domain("10100.mt.kr.iot.dreame.tech:19973", "kr"),
+            ("10000.mt.kr.iot.dreame.tech", 19973),
+        )
+
+        client_id = P.build_mqtt_client_id("123456789", "deadbeef")
+        self.assertTrue(client_id.startswith("p_"))
+        self.assertEqual(len(client_id), 34)
+
+        self.assertEqual(
+            P.build_mqtt_topics("123", "uid1", "dreame.airp.u2513", "cn"),
+            ("/status/123/uid1/dreame.airp.u2513/cn/",),
+        )
+        self.assertEqual(
+            P.build_mqtt_topics("123", "uid1", "dreame.airp.u2513", "kr"),
+            (
+                "/status/123/uid1/dreame.airp.u2513/kr/",
+                "/status/123/uid1/dreame.airp.u2513/sg/",
+            ),
+        )
+
+        kind, updates = P.parse_mqtt_message(
+            json.dumps(
+                {
+                    "data": {
+                        "method": "properties_changed",
+                        "params": [
+                            {"siid": 3, "piid": 5, "value": 24},
+                            {"siid": 3, "piid": 2, "value": 58},
+                        ],
+                    }
+                }
+            ).encode("utf-8")
+        )
+        self.assertEqual(kind, "properties")
+        self.assertEqual(updates, {"3.5": 24, "3.2": 58})
+
+        kind_otc, otc_data = P.parse_mqtt_message(
+            json.dumps({"data": {"method": "_otc.info", "params": {"ap": {"rssi": -61}}}})
+        )
+        self.assertEqual(kind_otc, "otc")
+        self.assertEqual(P.extract_wifi_rssi(otc_data), -61)
+        self.assertEqual(P.parse_mqtt_message(b"not-json"), (None, {}))
+
+        # Dual-firmware routing: 1.9.3_1072 vs legacy 1.8.30_1055
+        self.assertEqual(P.parse_mcu_version("1.9.3_1072"), 1072)
+        self.assertEqual(P.parse_mcu_version("1.8.30_1055"), 1055)
+        self.assertEqual(P.resolve_child_lock_key({"2.5": 0, "6.10": 1}, "1.9.3_1072"), "6.10")
+        self.assertEqual(P.resolve_child_lock_key({"2.5": 0}, "1.9.3_1072"), "6.10")
+        self.assertEqual(P.resolve_child_lock_key({"2.5": 0}, "1.8.30_1055"), "2.5")
+        self.assertEqual(P.resolve_key_sound_key({"6.7": 1, "6.17": 0}, "1.9.3_1072"), "6.17")
+        self.assertEqual(P.resolve_key_sound_key({"6.7": 1}, "1.8.30_1055"), "6.7")
+
+        # Verify embedded Dreame Root CA loads cleanly into an SSLContext
+        ctx = M.build_dreame_ssl_context()
+        self.assertTrue(ctx.check_hostname)
 
 
 class TestDreameClient(unittest.IsolatedAsyncioTestCase):
@@ -868,6 +1002,48 @@ class TestDreameClient(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(P.DreameCommandError):
             await client.async_set_property("cn.iot.dreame.tech", "123456789", 2, 4, 99)
 
+    async def test_refresh_token_and_device_info(self) -> None:
+        calls: list[dict[str, Any]] = []
+
+        def handler(url: str, kwargs: dict[str, Any]) -> _FakeResponse:
+            calls.append({"url": url, "data": kwargs.get("data"), "json": kwargs.get("json")})
+            if "/oauth/token" in url:
+                data = kwargs.get("data") or {}
+                if data.get("grant_type") == "refresh_token":
+                    return _FakeResponse(
+                        {
+                            "access_token": "tok_refreshed",
+                            "refresh_token": "ref_2",
+                            "uid": "uid_1",
+                            "expires_in": 3600,
+                            "region": "cn",
+                        }
+                    )
+                return _FakeResponse(
+                    {
+                        "access_token": "tok_initial",
+                        "refresh_token": "ref_1",
+                        "uid": "uid_1",
+                        "expires_in": 3600,
+                        "region": "cn",
+                    }
+                )
+            if "/device/info" in url:
+                return _FakeResponse({"code": 0, "data": {"ver": "1.9.3_1072", "masterUid": "m_uid_1"}})
+            return _FakeResponse({"code": 0, "data": []})
+
+        client = DreameClient(_FakeSession(handler), "u", "p", "cn")
+        uid, tok = await client.async_ensure_auth()
+        self.assertEqual((uid, tok), ("uid_1", "tok_initial"))
+
+        uid2, tok2 = await client.async_ensure_auth(force_refresh=True)
+        self.assertEqual((uid2, tok2), ("uid_1", "tok_refreshed"))
+        self.assertEqual(calls[1]["data"]["grant_type"], "refresh_token")
+
+        info = await client.async_get_device_info("123456789")
+        self.assertEqual(info["ver"], "1.9.3_1072")
+        self.assertEqual(info["masterUid"], "m_uid_1")
+
 
 class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
     """Verify HA lifecycle, flows, all 17 core unique_ids, fan math, sensors, and diagnostics."""
@@ -878,6 +1054,7 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
         hass.config_entries.async_forward_entry_setups = AsyncMock()
         hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
         hass.async_create_task = lambda coro: asyncio.create_task(coro)
+        hass.async_create_background_task = lambda coro, name=None: asyncio.create_task(coro)
 
         def update_entry(target: ConfigEntry, *, data: dict[str, Any]) -> None:
             target.data = dict(data)
@@ -886,33 +1063,52 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
 
         def handler(url: str, kwargs: dict[str, Any]) -> _FakeResponse:
             if "/oauth/token" in url:
-                return _FakeResponse({"access_token": "tok", "region": "cn"}) if "cn." in url else _FakeResponse(status=401)
+                return _FakeResponse({"access_token": "tok", "uid": "uid1", "region": "cn"}) if "cn." in url else _FakeResponse(status=401)
             if "/devOTCInfo" in url:
-                return _FakeResponse({"code": 0, "data": {"fw": "2.0.1"}})
+                return _FakeResponse({"code": 0, "data": {"otcInfo": {"params": {"ap": {"rssi": -60}}}}})
+            if "/device/info" in url:
+                return _FakeResponse({"code": 0, "data": {"ver": "1.9.3_1072", "masterUid": "uid1"}})
             return _FakeResponse({"code": 0, "data": [{"key": "2.1", "value": 1}, {"key": "3.5", "value": 14}]})
 
-        with patch(
-            "custom_components.dreame_airpurifier.coordinator.async_get_clientsession",
-            return_value=_FakeSession(handler),
+        async def _idle_push(_self) -> None:
+            await asyncio.sleep(3600)
+
+        with (
+            patch(
+                "custom_components.dreame_airpurifier.coordinator.async_get_clientsession",
+                return_value=_FakeSession(handler),
+            ),
+            patch.object(M.DreameMqttPushClient, "async_run_forever", _idle_push),
         ):
             ok = await dreame_init.async_setup_entry(hass, entry)
 
         self.assertTrue(ok)
         self.assertIsInstance(entry.runtime_data, DreameCoordinator)
         self.assertEqual(entry.data[C.CONF_REGION], "cn")
+        self.assertEqual(entry.runtime_data.fw_version, "1.9.3_1072")
+        self.assertIsNotNone(entry.runtime_data._push_task)
         self.assertEqual(entry._update_listeners, [])  # OptionsFlowWithReload, NO add_update_listener
         self.assertEqual(
             dreame_init.PLATFORMS,
-            (Platform.FAN, Platform.NUMBER, Platform.SELECT, Platform.SENSOR, Platform.SWITCH),
+            (
+                Platform.BINARY_SENSOR,
+                Platform.BUTTON,
+                Platform.FAN,
+                Platform.NUMBER,
+                Platform.SELECT,
+                Platform.SENSOR,
+                Platform.SWITCH,
+            ),
         )
         hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(entry, dreame_init.PLATFORMS)
 
-        # Schedule a follow-up task and verify unload shuts it down cleanly
+        # Schedule a follow-up task and verify unload shuts down BOTH push & follow-up cleanly
         entry.runtime_data.async_schedule_follow_up_refresh(delays=(60.0,))
         self.assertIsNotNone(entry.runtime_data._follow_up_task)
         unloaded = await dreame_init.async_unload_entry(hass, entry)
         self.assertTrue(unloaded)
         self.assertIsNone(entry.runtime_data._follow_up_task)
+        self.assertIsNone(entry.runtime_data._push_task)
 
     async def test_coordinator_update_error_mapping(self) -> None:
         entry = _live_entry()
@@ -1029,18 +1225,32 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
         did = "123456789"
         fan = DreameFanEntity(coord)
         number = DreameFanSpeedNumber(coord)
+        timer_number = DreameTimerHoursNumber(coord)
         select = DreameWindModeSelect(coord)
+        brightness_select = DreameLightBrightnessSelect(coord)
+        color_temp_select = DreameColorTemperatureSelect(coord)
         switch = DreameChildLockSwitch(coord)
+        breathing_switch = DreameAmbientBreathingSwitch(coord)
+        key_sound_switch = DreameKeySoundSwitch(coord)
+        push_sensor = DreameCloudPushBinarySensor(coord)
+        buttons = [DreameActionButton(coord, desc) for desc in BUTTON_DESCRIPTIONS]
         sensors = [DreameSensorEntity(coord, desc) for desc in SENSOR_DESCRIPTIONS]
 
         all_unique_ids = {
             fan._attr_unique_id,
             number._attr_unique_id,
+            timer_number._attr_unique_id,
             select._attr_unique_id,
+            brightness_select._attr_unique_id,
+            color_temp_select._attr_unique_id,
             switch._attr_unique_id,
+            breathing_switch._attr_unique_id,
+            key_sound_switch._attr_unique_id,
+            push_sensor._attr_unique_id,
+            *(b._attr_unique_id for b in buttons),
             *(s._attr_unique_id for s in sensors),
         }
-        expected_unique_ids = {
+        expected_17_legacy_unique_ids = {
             f"{did}_fan",
             f"{did}_number_fan_speed",
             f"{did}_select_wind_mode",
@@ -1054,8 +1264,8 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
                 )
             ),
         }
-        self.assertEqual(len(all_unique_ids), 17)
-        self.assertEqual(all_unique_ids, expected_unique_ids)
+        self.assertTrue(expected_17_legacy_unique_ids.issubset(all_unique_ids))
+        self.assertEqual(len(all_unique_ids), 31)
         self.assertNotIn(f"{did}_diagnostics", all_unique_ids)
 
         # Fan features, naming, unknown state, percentage <-> speed 1..10 mapping
@@ -1125,15 +1335,25 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(switch.is_on)
 
         # Sensor units, device classes, state classes, entity categories, and decoding
+        coord._fw_version = "1.9.3_1072"
         coord.async_set_updated_data(
             P.DreameState(
                 descriptor=coord.descriptor,
                 properties={
-                    "2.1": 1, "2.2": 0, "2.4": "7", "3.4": "2",
+                    "2.1": 1, "2.2": 0, "2.4": "7", "3.2": "57", "3.3": "21", "3.4": "2",
                     "3.5": "15", "3.6": 28, "3.7": 120, "3.8": 95, "3.13": 15,
                     "4.1": 86, "4.2": 140, "4.4": 74, "4.5": 60,
+                    "6.6": "80", "6.8": "3", "6.10": "1", "6.12": "0", "6.13": "4000", "6.17": "1",
+                    "7.1": "0",
                 },
-                otc_info={"fw": "1.2.3", "localIp": "192.168.1.99", "bssid": "11:22:33:44:55:66"},
+                otc_info={
+                    "fw": "1.2.3",
+                    "localIp": "192.168.1.99",
+                    "bssid": "11:22:33:44:55:66",
+                    "otcInfo": {"params": {"ap": {"rssi": -60}}},
+                },
+                fw_version="1.9.3_1072",
+                mqtt_connected=True,
             )
         )
         by_key = {s.entity_description.key: s for s in sensors}
@@ -1150,13 +1370,87 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(by_key["status_code"].native_value, "工作中")
         self.assertEqual(by_key["current_speed"].native_value, 7)
 
+        # New v2.0.0 sensors & entities
+        self.assertEqual(by_key["temperature"].entity_description.device_class, SensorDeviceClass.TEMPERATURE)
+        self.assertEqual(by_key["temperature"].entity_description.native_unit_of_measurement, UnitOfTemperature.CELSIUS)
+        self.assertEqual(by_key["temperature"].native_value, 21)
+        self.assertEqual(by_key["humidity"].entity_description.device_class, SensorDeviceClass.HUMIDITY)
+        self.assertEqual(by_key["humidity"].entity_description.native_unit_of_measurement, PERCENTAGE)
+        self.assertEqual(by_key["humidity"].native_value, 57)
+        self.assertEqual(by_key["self_cleaning_status"].entity_description.device_class, SensorDeviceClass.ENUM)
+        self.assertEqual(by_key["self_cleaning_status"].native_value, "idle")
+        self.assertEqual(by_key["wifi_rssi"].entity_description.device_class, SensorDeviceClass.SIGNAL_STRENGTH)
+        self.assertEqual(by_key["wifi_rssi"].entity_description.native_unit_of_measurement, SIGNAL_STRENGTH_DECIBELS_MILLIWATT)
+        self.assertEqual(by_key["wifi_rssi"].native_value, -60)
+
+        self.assertEqual(push_sensor._attr_device_class, BinarySensorDeviceClass.CONNECTIVITY)
+        self.assertTrue(push_sensor.is_on)
+        self.assertEqual(fan.device_info["sw_version"], "1.9.3_1072")
+
+        # Dynamic MQTT push updates & fallback polling interval switching
+        coord._handle_push_connection_change(True)
+        self.assertEqual(coord.update_interval.total_seconds(), 300)
+        coord._handle_push_properties({"3.5": 19, "7.1": "99"})
+        self.assertEqual(by_key["pm25"].native_value, 19)
+        self.assertIsNone(by_key["self_cleaning_status"].native_value)  # Unknown enum safely maps to None
+        coord._handle_push_connection_change(False)
+        self.assertEqual(coord.update_interval.total_seconds(), 30)
+        self.assertFalse(push_sensor.is_on)
+
+        # New v2.0.0 controls (timer, brightness, color temp, breathing, key sound, buttons)
+        self.assertEqual(timer_number.native_value, 3.0)
+        self.assertEqual(brightness_select.current_option, "bright")
+        self.assertEqual(color_temp_select.current_option, "neutral")
+        self.assertFalse(breathing_switch.is_on)
+        self.assertTrue(key_sound_switch.is_on)
+        self.assertTrue(switch.is_on)  # Reads 6.10 on 1.9.3_1072
+
+        coord.client.async_set_property.reset_mock()
+        await timer_number.async_set_native_value(6.0)
+        await brightness_select.async_select_option("dim")
+        await color_temp_select.async_select_option("warm")
+        await breathing_switch.async_turn_on()
+        await key_sound_switch.async_turn_off()
+        await switch.async_turn_off()
+        self.assertEqual(
+            [call.args for call in coord.client.async_set_property.await_args_list],
+            [
+                ("cn.iot.dreame.tech", did, 6, 8, 6),
+                ("cn.iot.dreame.tech", did, 6, 6, 30),
+                ("cn.iot.dreame.tech", did, 6, 13, 2700),
+                ("cn.iot.dreame.tech", did, 6, 12, 1),
+                ("cn.iot.dreame.tech", did, 6, 17, 0),
+                ("cn.iot.dreame.tech", did, 6, 10, 0),
+            ],
+        )
+
+        # Button actions & safety defaults (filter reset disabled by default)
+        btn_by_key = {b.entity_description.key: b for b in buttons}
+        self.assertTrue(btn_by_key["start_self_cleaning"].entity_description.entity_registry_enabled_default)
+        self.assertFalse(btn_by_key["reset_hepa_filter"].entity_description.entity_registry_enabled_default)
+        self.assertFalse(btn_by_key["reset_combbox"].entity_description.entity_registry_enabled_default)
+        coord.client.async_action.reset_mock()
+        await btn_by_key["start_self_cleaning"].async_press()
+        await btn_by_key["confirm_self_cleaning"].async_press()
+        await btn_by_key["reset_hepa_filter"].async_press()
+        await btn_by_key["reset_combbox"].async_press()
+        self.assertEqual(
+            [call.args for call in coord.client.async_action.await_args_list],
+            [
+                ("cn.iot.dreame.tech", did, 7, 1, None),
+                ("cn.iot.dreame.tech", did, 7, 2, None),
+                ("cn.iot.dreame.tech", did, 4, 1, None),
+                ("cn.iot.dreame.tech", did, 4, 3, None),
+            ],
+        )
+
         for key in ("hepa_filter_life", "combbox_life"):
             self.assertEqual(by_key[key].entity_description.native_unit_of_measurement, PERCENTAGE)
             self.assertEqual(by_key[key].entity_description.entity_category, EntityCategory.DIAGNOSTIC)
         for key in ("hepa_filter_life_days", "combbox_life_days"):
             self.assertEqual(by_key[key].entity_description.native_unit_of_measurement, UnitOfTime.DAYS)
             self.assertEqual(by_key[key].entity_description.entity_category, EntityCategory.DIAGNOSTIC)
-        for key in ("status_code", "error_code"):
+        for key in ("status_code", "error_code", "wifi_rssi"):
             self.assertEqual(by_key[key].entity_description.entity_category, EntityCategory.DIAGNOSTIC)
 
         # Auth and API errors across all control platforms
@@ -1166,6 +1460,7 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
                 (number, lambda: number.async_set_native_value(3)),
                 (select, lambda: select.async_select_option("智能净化")),
                 (switch, lambda: switch.async_turn_on()),
+                (btn_by_key["start_self_cleaning"], lambda: btn_by_key["start_self_cleaning"].async_press()),
             ):
                 entry.reauth_started = False
                 coord.client.async_action.side_effect = exc_cls("boom")
@@ -1185,13 +1480,15 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(diag["otc_info"]["localIp"], "**REDACTED**")
         self.assertEqual(diag["otc_info"]["bssid"], "**REDACTED**")
         self.assertEqual(diag["otc_info"]["fw"], "1.2.3")
-        self.assertEqual(diag["properties"]["3.5"], "15")
+        self.assertEqual(diag["fw_version"], "1.9.3_1072")
+        self.assertEqual(diag["properties"]["3.5"], 19)
 
     def test_manifest_and_translations_alignment(self) -> None:
         manifest = json.loads((COMPONENT_DIR / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["domain"], "dreame_airpurifier")
-        self.assertEqual(manifest["version"], "1.0.0")
-        self.assertEqual(manifest["iot_class"], "cloud_polling")
+        self.assertEqual(manifest["version"], "2.0.0")
+        self.assertEqual(manifest["iot_class"], "cloud_push")
+        self.assertIn("aiomqtt>=2.0.0", manifest["requirements"])
 
         strings = json.loads((COMPONENT_DIR / "strings.json").read_text(encoding="utf-8"))
         en = json.loads((COMPONENT_DIR / "translations" / "en.json").read_text(encoding="utf-8"))
@@ -1203,9 +1500,11 @@ class TestEntitiesFlowAndLifecycle(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(key_tree(strings), key_tree(en))
         self.assertEqual(key_tree(strings), key_tree(zh))
         self.assertEqual(set(strings["entity"]["sensor"]), {d.key for d in SENSOR_DESCRIPTIONS})
-        self.assertIn("fan_speed", strings["entity"]["number"])
-        self.assertIn("wind_mode", strings["entity"]["select"])
-        self.assertIn("child_lock", strings["entity"]["switch"])
+        self.assertEqual(set(strings["entity"]["button"]), {d.key for d in BUTTON_DESCRIPTIONS})
+        self.assertIn("cloud_push", strings["entity"]["binary_sensor"])
+        self.assertEqual(set(strings["entity"]["number"]), {"fan_speed", "timer_hours"})
+        self.assertEqual(set(strings["entity"]["select"]), {"wind_mode", "light_brightness", "color_temperature"})
+        self.assertEqual(set(strings["entity"]["switch"]), {"child_lock", "ambient_breathing", "key_sound"})
 
     async def test_legacy_options_graceful_and_config_flow_errors_and_fan_unknown_speed(self) -> None:
         # Legacy options with old reverse-engineering keys must not break coordinator or options flow
